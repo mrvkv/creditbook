@@ -1,4 +1,5 @@
-import { ITransaction, IUser } from "@/app";
+import { ITransaction } from "@/types/transaction.interface";
+import { IUser } from "@/types/user.interface";
 import * as SQLite from "expo-sqlite";
 
 export default class DatabaseService {
