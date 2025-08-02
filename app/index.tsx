@@ -1,27 +1,14 @@
 import CardComponent from "@/components/Card";
-import DatabaseService from "@/services/database";
+import DatabaseService from "@/services/database.service";
+import globalStylesheet from "@/stylesheets/global.stylesheet";
+import { IUser } from "@/types/user.interface";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
-import { Button, MD3LightTheme, Modal, PaperProvider, Portal, TextInput } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
-
-export interface IUser {
-    name: string;
-    userId: number;
-    balance: number;
-}
-
-export interface ITransaction {
-    amount: number;
-    type: string;
-}
+import { View } from "react-native";
+import { Button, Modal, Portal, TextInput } from "react-native-paper";
 
 export default function Index() {
     const [users, setUsers] = useState<IUser[]>();
-    const theme = {
-        ...MD3LightTheme,
-    };
 
     const [visible, setVisible] = useState(false);
     const [text, setText] = useState("");
@@ -51,67 +38,47 @@ export default function Index() {
     }
 
     return (
-        <PaperProvider theme={theme}>
-            <SafeAreaView style={{ backgroundColor: theme.colors.background, ...styles.container }}>
-                <Portal>
-                    <Modal visible={visible} onDismiss={hideModal} contentContainerStyle={styles.modal}>
-                        <View>
-                            <TextInput
-                                mode="outlined"
-                                style={{ marginLeft: 10, marginRight: 10 }}
-                                label="Account Name"
-                                value={text}
-                                onChangeText={(text) => setText(text)}
-                            />
-                            <Button
-                                style={styles.button}
-                                mode="contained"
-                                onPress={() => {
-                                    DatabaseService.createUser(text);
-                                    setUsers(DatabaseService.getUsers());
-                                    hideModal();
-                                    setText("");
-                                }}
-                            >
-                                Submit
-                            </Button>
-                        </View>
-                    </Modal>
-                </Portal>
-                {users?.map(({ userId, name, balance }) => {
-                    return (
-                        <CardComponent
-                            key={userId}
-                            userId={userId}
-                            name={name}
-                            balance={balance}
-                            onPressHandler={onPressHandler}
-                            onDeleteHandler={onDeleteHandler}
+        <View>
+            <Portal>
+                <Modal visible={visible} onDismiss={hideModal} contentContainerStyle={globalStylesheet.modal}>
+                    <View>
+                        <TextInput
+                            mode="outlined"
+                            style={{ marginLeft: 10, marginRight: 10 }}
+                            label="Account Name"
+                            value={text}
+                            onChangeText={(text) => setText(text)}
                         />
-                    );
-                })}
-                <Button icon="plus" style={styles.button} mode="contained" onPress={() => showModal()}>
-                    Add New Account
-                </Button>
-            </SafeAreaView>
-        </PaperProvider>
+                        <Button
+                            style={globalStylesheet.button}
+                            mode="contained"
+                            onPress={() => {
+                                DatabaseService.createUser(text);
+                                setUsers(DatabaseService.getUsers());
+                                hideModal();
+                                setText("");
+                            }}
+                        >
+                            Submit
+                        </Button>
+                    </View>
+                </Modal>
+            </Portal>
+            {users?.map(({ userId, name, balance }) => {
+                return (
+                    <CardComponent
+                        key={userId}
+                        userId={userId}
+                        name={name}
+                        balance={balance}
+                        onPressHandler={onPressHandler}
+                        onDeleteHandler={onDeleteHandler}
+                    />
+                );
+            })}
+            <Button icon="plus" style={globalStylesheet.button} mode="contained" onPress={() => showModal()}>
+                Add New Account
+            </Button>
+        </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        marginTop: 50,
-    },
-    button: {
-        marginTop: 20,
-        marginLeft: 50,
-        marginRight: 50,
-    },
-    modal: {
-        backgroundColor: "white",
-        marginLeft: 50,
-        marginRight: 50,
-        minHeight: 300,
-    },
-});

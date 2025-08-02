@@ -1,4 +1,4 @@
-import { ITransaction } from "@/app";
+import { ITransaction } from "@/types/transaction.interface";
 import * as React from "react";
 import { DataTable } from "react-native-paper";
 
