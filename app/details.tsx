@@ -2,10 +2,10 @@ import Table from "@/components/Table";
 import DatabaseService from "@/services/database.service";
 import globalStylesheet from "@/stylesheets/global.stylesheet";
 import { ITransaction } from "@/types/transaction.interface";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { View } from "react-native";
-import { Button, Modal, Portal, RadioButton, Text, TextInput } from "react-native-paper";
+import { Button, IconButton, Modal, Portal, RadioButton, Text, TextInput } from "react-native-paper";
 
 export default function Details() {
     const { userId } = useLocalSearchParams() as unknown as { userId: string };
@@ -24,6 +24,34 @@ export default function Details() {
         console.log(DatabaseService.getTransactions(parseInt(userId)));
         setTransactions(DatabaseService.getTransactions(parseInt(userId)));
     }, []);
+
+    const HeaderRight = () => (
+        <IconButton
+            icon="plus"
+            mode="contained"
+            selected={true}
+            onPress={() => {
+                showModal();
+            }}
+        />
+    );
+
+    const HeaderLeft = () => (
+        <IconButton
+            icon="arrow-left"
+            mode="contained"
+            onPress={() => {
+                navigateToHome();
+            }}
+        />
+    );
+    const navigation = useNavigation();
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerRight: HeaderRight,
+            headerLeft: HeaderLeft,
+        });
+    });
 
     function navigateToHome() {
         router.replace({
@@ -74,12 +102,6 @@ export default function Details() {
                 </Modal>
             </Portal>
             <Table items={transactions}></Table>;
-            <Button style={globalStylesheet.button} mode="contained" onPress={() => showModal()}>
-                Add a Transaction
-            </Button>
-            <Button style={globalStylesheet.button} mode="contained" onPress={() => navigateToHome()}>
-                Back
-            </Button>
         </View>
     );
 }

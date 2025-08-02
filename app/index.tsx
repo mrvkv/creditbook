@@ -30,7 +30,6 @@ export default function Index() {
             selected={true}
             onPress={() => {
                 showModal();
-                console.log("Pressed");
             }}
         />
     );
