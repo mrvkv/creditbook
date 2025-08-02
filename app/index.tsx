@@ -2,15 +2,15 @@ import CardComponent from "@/components/Card";
 import DatabaseService from "@/services/database.service";
 import globalStylesheet from "@/stylesheets/global.stylesheet";
 import { IUser } from "@/types/user.interface";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useNavigation, useRouter } from "expo-router";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { View } from "react-native";
-import { Button, Modal, Portal, TextInput } from "react-native-paper";
+import { Button, IconButton, Modal, Portal, TextInput } from "react-native-paper";
 
 export default function Index() {
     const [users, setUsers] = useState<IUser[]>();
-
     const [visible, setVisible] = useState(false);
+
     const [text, setText] = useState("");
     const router = useRouter();
 
@@ -22,6 +22,24 @@ export default function Index() {
         console.log(DatabaseService.getUsers());
         setUsers(DatabaseService.getUsers());
     }, []);
+
+    const HeaderRight = () => (
+        <IconButton
+            icon="plus"
+            mode="contained"
+            selected={true}
+            onPress={() => {
+                showModal();
+                console.log("Pressed");
+            }}
+        />
+    );
+    const navigation = useNavigation();
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerRight: HeaderRight,
+        });
+    });
 
     function onPressHandler(userId: number) {
         router.replace({
@@ -76,9 +94,6 @@ export default function Index() {
                     />
                 );
             })}
-            <Button icon="plus" style={globalStylesheet.button} mode="contained" onPress={() => showModal()}>
-                Add New Account
-            </Button>
         </View>
     );
 }
