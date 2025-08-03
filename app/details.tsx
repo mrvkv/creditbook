@@ -1,4 +1,4 @@
-import Table from "@/components/Table";
+import TransactionTable from "@/components/TransactionTable";
 import DatabaseService from "@/services/database.service";
 import globalStylesheet from "@/stylesheets/global.stylesheet";
 import { ITransaction } from "@/types/transaction.interface";
@@ -101,7 +101,7 @@ export default function Details() {
                     </View>
                 </Modal>
             </Portal>
-            <Table items={transactions}></Table>;
+            <TransactionTable items={transactions}></TransactionTable>;
         </View>
     );
 }
