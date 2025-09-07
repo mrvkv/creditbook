@@ -1,4 +1,6 @@
+import DatabaseService from "@/services/database.service";
 import { Stack } from "expo-router";
+import { SQLiteProvider } from "expo-sqlite";
 import { MD3LightTheme, PaperProvider } from "react-native-paper";
 
 export default function RootLayout() {
@@ -7,11 +9,13 @@ export default function RootLayout() {
     };
 
     return (
-        <PaperProvider theme={theme}>
-            <Stack screenOptions={{ headerTitleAlign: "center" }}>
-                <Stack.Screen name="index" options={{ title: "Credit Book" }} />
-                <Stack.Screen name="details" options={{ title: "Transactions" }} />
-            </Stack>
-        </PaperProvider>
+        <SQLiteProvider databaseName="creditbook" onInit={DatabaseService.migrate}>
+            <PaperProvider theme={theme}>
+                <Stack screenOptions={{ headerTitleAlign: "center" }}>
+                    <Stack.Screen name="index" options={{ title: "Credit Book" }} />
+                    <Stack.Screen name="details" options={{ title: "Transactions" }} />
+                </Stack>
+            </PaperProvider>
+        </SQLiteProvider>
     );
 }

@@ -1,98 +1,108 @@
-import CardComponent from "@/components/Card";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import HeaderRight from "@/components/HeaderRight";
+import Modal from "@/components/Modal";
+import UserModal from "@/components/UserModal";
+import UserTable from "@/components/UserTable";
 import DatabaseService from "@/services/database.service";
-import globalStylesheet from "@/stylesheets/global.stylesheet";
 import { IUser } from "@/types/user.interface";
 import { useNavigation, useRouter } from "expo-router";
+import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { View } from "react-native";
-import { Button, IconButton, Modal, Portal, TextInput } from "react-native-paper";
+import { Portal } from "react-native-paper";
 
 export default function Index() {
-    const [users, setUsers] = useState<IUser[]>();
-    const [visible, setVisible] = useState(false);
-
-    const [text, setText] = useState("");
+    const db = useSQLiteContext();
     const router = useRouter();
+    const navigation = useNavigation();
+    const headerRight = () => <HeaderRight handler={addUserHandler} />;
 
-    const showModal = () => setVisible(true);
-    const hideModal = () => setVisible(false);
+    const [users, setUsers] = useState<IUser[]>();
+    const [isVisible, setIsVisible] = useState(false);
+    const [isEdit, setIsEdit] = useState(false);
+    const [isAdd, setIsAdd] = useState(false);
+    const [isDelete, setIsDelete] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<IUser>();
 
     useEffect(() => {
-        DatabaseService.connect();
-        console.log(DatabaseService.getUsers());
-        setUsers(DatabaseService.getUsers());
+        refreshUserList();
     }, []);
-
-    const HeaderRight = () => (
-        <IconButton
-            icon="plus"
-            mode="contained"
-            selected={true}
-            onPress={() => {
-                showModal();
-            }}
-        />
-    );
-    const navigation = useNavigation();
     useLayoutEffect(() => {
         navigation.setOptions({
-            headerRight: HeaderRight,
+            headerRight,
         });
-    });
+    }, []);
 
-    function onPressHandler(userId: number) {
+    function refreshUserList(): void {
+        setUsers(DatabaseService.getUsers(db));
+    }
+
+    function viewUserHandler(user: IUser) {
         router.replace({
             pathname: "/details",
             params: {
-                userId,
+                userId: user.userId,
             },
         });
     }
 
-    function onDeleteHandler(userId: number) {
-        DatabaseService.deleteUser(userId);
-        setUsers(DatabaseService.getUsers());
+    function addUserHandler() {
+        setIsVisible(true);
+        setIsAdd(true);
+        setIsEdit(false);
+        setIsDelete(false);
+    }
+
+    function deleteUserHandler(user: IUser) {
+        setIsAdd(false);
+        setIsEdit(false);
+        setIsDelete(true);
+        setSelectedUser(user);
+        setIsVisible(true);
+    }
+
+    function editUserHandler(user: IUser): void {
+        setIsAdd(false);
+        setIsDelete(false);
+        setSelectedUser(user);
+        setIsVisible(true);
+        setIsEdit(true);
+    }
+
+    function userHandler(id: number, name: string): void {
+        if (name && !id) {
+            DatabaseService.createUser(db, name);
+        } else if (id && name) {
+            DatabaseService.updateUser(db, id, name);
+        } else if (id && !name) {
+            DatabaseService.deleteUser(db, id);
+        }
+
+        refreshUserList();
     }
 
     return (
         <View>
             <Portal>
-                <Modal visible={visible} onDismiss={hideModal} contentContainerStyle={globalStylesheet.modal}>
-                    <View>
-                        <TextInput
-                            mode="outlined"
-                            style={{ marginLeft: 10, marginRight: 10 }}
-                            label="Account Name"
-                            value={text}
-                            onChangeText={(text) => setText(text)}
-                        />
-                        <Button
-                            style={globalStylesheet.button}
-                            mode="contained"
-                            onPress={() => {
-                                DatabaseService.createUser(text);
-                                setUsers(DatabaseService.getUsers());
-                                hideModal();
-                                setText("");
-                            }}
-                        >
-                            Submit
-                        </Button>
-                    </View>
-                </Modal>
+                {(isAdd || isEdit) && (
+                    <Modal isVisible={isVisible} setVisibility={setIsVisible}>
+                        {isAdd && <UserModal onSubmit={userHandler} setVisibility={setIsVisible} />}
+                        {isEdit && selectedUser && (
+                            <UserModal onSubmit={userHandler} setVisibility={setIsVisible} userName={selectedUser.name} userId={selectedUser.userId} />
+                        )}
+                    </Modal>
+                )}
+                {isDelete && (
+                    <ConfirmationModal
+                        message="Are you sure, you want to delete the user?"
+                        setIsVisible={setIsVisible}
+                        onSubmit={() => userHandler(selectedUser!.userId, "")}
+                        onCancel={() => {}}
+                        isVisible={isVisible}
+                    ></ConfirmationModal>
+                )}
             </Portal>
-            {users?.map(({ userId, name, balance }) => {
-                return (
-                    <CardComponent
-                        key={userId}
-                        userId={userId}
-                        name={name}
-                        balance={balance}
-                        onPressHandler={onPressHandler}
-                        onDeleteHandler={onDeleteHandler}
-                    />
-                );
-            })}
+            <UserTable users={users!} onDelete={deleteUserHandler} onView={viewUserHandler} onEdit={editUserHandler}></UserTable>
         </View>
     );
 }
