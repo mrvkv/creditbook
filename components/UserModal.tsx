@@ -13,19 +13,17 @@ interface IUserModalProps {
 export default function UserModal({ onSubmit, setVisibility, userName, userId }: IUserModalProps) {
     const [name, setName] = useState(userName || "");
     let modalTitle = "Add Account";
-    let buttonText = "Add";
 
     if (userName) {
         modalTitle = "Edit Account";
-        buttonText = "Edit";
     }
 
     return (
         <View>
-            <Text variant="titleMedium" style={{ margin: "auto", marginBottom: 10 }}>
+            <Text variant="titleMedium" style={modalStylesheet.text}>
                 {modalTitle}
             </Text>
-            <TextInput mode="outlined" style={{ marginLeft: 10, marginRight: 10 }} label="Account Name" value={name} onChangeText={(text) => setName(text)} />
+            <TextInput mode="outlined" style={modalStylesheet.textInput} label="Account Name" value={name} onChangeText={(text) => setName(text)} />
             <Button
                 style={modalStylesheet.button}
                 mode="contained"
@@ -34,7 +32,7 @@ export default function UserModal({ onSubmit, setVisibility, userName, userId }:
                     setVisibility(false);
                 }}
             >
-                {buttonText}
+                Submit
             </Button>
         </View>
     );

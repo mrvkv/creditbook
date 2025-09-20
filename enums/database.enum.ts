@@ -7,4 +7,5 @@ export enum DbDataType {
 export enum DbConstraint {
     PrimaryKey = "PRIMARY KEY",
     NotNull = "NOT NULL",
+    Default = "DEFAULT",
 }

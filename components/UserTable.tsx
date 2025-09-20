@@ -18,7 +18,7 @@ const Cell = ({ content, type }: { content: string; type?: string }) => (
             }}
             variant="titleSmall"
         >
-            {content}
+            {type !== "amount" ? content : `₹${content.replace("-", "")}`}
         </Text>
     </DataTable.Cell>
 );
@@ -46,7 +46,7 @@ const UserTable = ({
                 {users?.map((user) => (
                     <DataTable.Row key={user.userId}>
                         <Cell content={user.name}></Cell>
-                        <Cell content={`₹${user.balance.toString()}`} type="amount" />
+                        <Cell content={user.balance.toString()} type="amount" />
                         <DataTable.Cell style={tableStylesheet.cell}>
                             <IconButton icon="eye" size={20} iconColor="skyblue" onPress={() => onView(user)} />
                             <IconButton icon="pencil" size={20} iconColor="blue" onPress={() => onEdit(user)} />

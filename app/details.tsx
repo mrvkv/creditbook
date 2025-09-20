@@ -1,107 +1,85 @@
+import ConfirmationModal from "@/components/ConfirmationModal";
+import HeaderLeft from "@/components/HeaderLeft";
+import HeaderRight from "@/components/HeaderRight";
+import Modal from "@/components/Modal";
+import TransactionModal from "@/components/TransactionModal";
 import TransactionTable from "@/components/TransactionTable";
 import DatabaseService from "@/services/database.service";
-import globalStylesheet from "@/stylesheets/global.stylesheet";
 import { ITransaction } from "@/types/transaction.interface";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { View } from "react-native";
-import { Button, IconButton, Modal, Portal, RadioButton, Text, TextInput } from "react-native-paper";
+import { Portal } from "react-native-paper";
 
 export default function Details() {
-    const { userId } = useLocalSearchParams() as unknown as { userId: string };
-    const [transactions, setTransactions] = useState<ITransaction[]>([]);
+    const db = useSQLiteContext();
     const router = useRouter();
-    const [type, setType] = useState("Debit");
+    const navigation = useNavigation();
+    const { userId } = useLocalSearchParams() as unknown as { userId: string };
+    const headerRight = () => <HeaderRight handler={addTransactionHandler} />;
+    const headerLeft = () => <HeaderLeft handler={navigateToHome} />;
 
-    const [visible, setVisible] = useState(false);
-    const [text, setText] = useState("");
-
-    const showModal = () => setVisible(true);
-    const hideModal = () => setVisible(false);
+    const [transactions, setTransactions] = useState<ITransaction[]>([]);
+    const [isVisible, setIsVisible] = useState(false);
+    const [isDelete, setIsDelete] = useState(false);
+    const [selectedTransaction, setSelectedTransaction] = useState<ITransaction>();
 
     useEffect(() => {
-        DatabaseService.connect();
-        console.log(DatabaseService.getTransactions(parseInt(userId)));
-        setTransactions(DatabaseService.getTransactions(parseInt(userId)));
+        refreshTransactionList();
     }, []);
-
-    const HeaderRight = () => (
-        <IconButton
-            icon="plus"
-            mode="contained"
-            selected={true}
-            onPress={() => {
-                showModal();
-            }}
-        />
-    );
-
-    const HeaderLeft = () => (
-        <IconButton
-            icon="arrow-left"
-            mode="contained"
-            onPress={() => {
-                navigateToHome();
-            }}
-        />
-    );
-    const navigation = useNavigation();
     useLayoutEffect(() => {
         navigation.setOptions({
-            headerRight: HeaderRight,
-            headerLeft: HeaderLeft,
+            headerLeft,
+            headerRight,
         });
-    });
+    }, []);
 
-    function navigateToHome() {
+    function refreshTransactionList(): void {
+        setTransactions(DatabaseService.getTransactions(db, parseInt(userId)));
+    }
+
+    function navigateToHome(): void {
         router.replace({
             pathname: "/",
         });
     }
 
+    function addTransactionHandler(): void {
+        setIsDelete(false);
+        setIsVisible(true);
+    }
+
+    function deleteTransactionHandler(transaction: ITransaction): void {
+        setIsDelete(true);
+        setIsVisible(true);
+        setSelectedTransaction(transaction);
+    }
+
+    function deleteTransaction(): void {
+        DatabaseService.deleteTransaction(db, selectedTransaction!);
+        refreshTransactionList();
+    }
+
     return (
         <View>
             <Portal>
-                <Modal visible={visible} onDismiss={hideModal} contentContainerStyle={globalStylesheet.modal}>
-                    <View>
-                        <TextInput
-                            mode="outlined"
-                            style={{ marginLeft: 10, marginRight: 10 }}
-                            label="Amount"
-                            value={text}
-                            onChangeText={(text) => setText(text)}
-                        />
-                        <View style={{ flexDirection: "row", alignItems: "center", margin: "auto" }}>
-                            <RadioButton
-                                value="Debit"
-                                status={type === "Debit" ? "checked" : "unchecked"}
-                                onPress={() => setType("Debit")}
-                            />
-                            <Text>Debit</Text>
-                            <RadioButton
-                                value="Credit"
-                                status={type === "Credit" ? "checked" : "unchecked"}
-                                onPress={() => setType("Credit")}
-                            />
-                            <Text>Credit</Text>
-                        </View>
-                        <Button
-                            style={globalStylesheet.button}
-                            mode="contained"
-                            onPress={() => {
-                                DatabaseService.createTransaction(parseInt(userId), parseInt(text), type);
-                                setTransactions(DatabaseService.getTransactions(parseInt(userId)));
-                                hideModal();
-                                setText("");
-                                setType("Debit");
-                            }}
-                        >
-                            Submit
-                        </Button>
-                    </View>
-                </Modal>
+                {!isDelete && (
+                    <Modal isVisible={isVisible} setVisibility={setIsVisible}>
+                        <TransactionModal userId={userId} setVisibility={setIsVisible} refreshTransactionList={refreshTransactionList}></TransactionModal>
+                    </Modal>
+                )}
+                {isDelete && (
+                    <ConfirmationModal
+                        message="Are you sure, you want to delete the transaction?"
+                        setIsVisible={setIsVisible}
+                        onSubmit={() => deleteTransaction()}
+                        onCancel={() => {}}
+                        isVisible={isVisible}
+                    ></ConfirmationModal>
+                )}
             </Portal>
-            <TransactionTable items={transactions}></TransactionTable>;
+            <TransactionTable transactions={transactions} onDelete={deleteTransactionHandler}></TransactionTable>;
         </View>
     );
 }

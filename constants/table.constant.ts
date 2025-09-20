@@ -47,6 +47,10 @@ export default {
             type: DbDataType.Text,
             constraints: [DbConstraint.NotNull],
         },
+        remark: {
+            type: DbDataType.Text,
+            constraints: [`${DbConstraint.Default} ''`] as unknown as DbConstraint[],
+        },
     },
     users: {
         userId: {

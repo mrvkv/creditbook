@@ -2,14 +2,27 @@ import { StyleSheet } from "react-native";
 
 export default StyleSheet.create({
     button: {
-        marginTop: 20,
-        marginLeft: 50,
-        marginRight: 50,
+        margin: "auto",
+        marginBottom: 10,
     },
     modal: {
         backgroundColor: "white",
         marginLeft: 50,
         marginRight: 50,
-        minHeight: 200,
+    },
+    textInput: {
+        marginLeft: 50,
+        marginRight: 50,
+        marginBottom: 10,
+    },
+    text: {
+        margin: "auto",
+        marginBottom: 10,
+        marginTop: 10,
+    },
+    radioButtonView: {
+        flexDirection: "row",
+        alignItems: "center",
+        margin: "auto",
     },
 });

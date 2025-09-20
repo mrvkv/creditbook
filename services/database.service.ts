@@ -1,4 +1,6 @@
 import { Tables } from "@/constants/table.constant";
+import { TransactionType } from "@/enums/transaction.enum";
+import { ITransaction } from "@/types/transaction.interface";
 import { IUser } from "@/types/user.interface";
 import * as SQLite from "expo-sqlite";
 import QueryService from "./query.service";
@@ -37,20 +39,39 @@ export default class DatabaseService {
         db.runSync("DELETE FROM transactions where userId = ?", userId);
     }
 
-    // public static getTransactions(userId: number): ITransaction[] {
-    //     return this.db.getAllSync("SELECT * FROM transactions where userId = ?", userId);
-    // }
+    public static getTransactions(db: SQLite.SQLiteDatabase, userId: number): ITransaction[] {
+        return db.getAllSync("SELECT * FROM transactions where userId = ?", userId);
+    }
 
-    // public static createTransaction(userId: number, amount: number, type: string): void {
-    //     this.db.runSync("INSERT INTO transactions (userId, amount, type) VALUES (?, ?, ?)", userId, amount, type);
-    //     let { balance } = this.db.getFirstSync("SELECT balance FROM users WHERE userId = ?", userId) as IUser;
-    //     console.log(balance);
-    //     if (type === "Debit") {
-    //         balance -= amount;
-    //     } else {
-    //         balance += amount;
-    //     }
-    //     console.log("After", balance);
-    //     this.db.runSync("UPDATE users SET balance = ? WHERE userId = ?", balance, userId);
-    // }
+    public static createTransaction(db: SQLite.SQLiteDatabase, userId: number, amount: number, type: string, remark: string): void {
+        const { transactionId: counter } = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number };
+        db.runSync(
+            "INSERT INTO transactions (transactionId, userId, amount, type, date, remark) VALUES (?, ?, ?, ?, ?, ?)",
+            counter,
+            userId,
+            amount,
+            type,
+            new Date().toISOString(),
+            remark
+        );
+        let { balance } = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", userId) as IUser;
+        if (type === TransactionType.Debit) {
+            balance -= amount;
+        } else {
+            balance += amount;
+        }
+        db.runSync("UPDATE users SET balance = ? WHERE userId = ?", balance, userId);
+        db.runSync("UPDATE counters SET transactionId = ?", counter + 1);
+    }
+
+    public static deleteTransaction(db: SQLite.SQLiteDatabase, { transactionId, userId, type, amount }: ITransaction): void {
+        db.runSync("DELETE FROM transactions where transactionId = ?", transactionId);
+        let { balance } = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", userId) as IUser;
+        if (type === TransactionType.Debit) {
+            balance = balance + amount;
+        } else {
+            balance = balance - amount;
+        }
+        db.runSync("UPDATE users SET balance = ? WHERE userId = ?", balance, userId);
+    }
 }

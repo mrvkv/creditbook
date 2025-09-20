@@ -37,7 +37,7 @@ export default function Index() {
         setUsers(DatabaseService.getUsers(db));
     }
 
-    function viewUserHandler(user: IUser) {
+    function viewUserHandler(user: IUser): void {
         router.replace({
             pathname: "/details",
             params: {
@@ -46,14 +46,14 @@ export default function Index() {
         });
     }
 
-    function addUserHandler() {
+    function addUserHandler(): void {
         setIsVisible(true);
         setIsAdd(true);
         setIsEdit(false);
         setIsDelete(false);
     }
 
-    function deleteUserHandler(user: IUser) {
+    function deleteUserHandler(user: IUser): void {
         setIsAdd(false);
         setIsEdit(false);
         setIsDelete(true);

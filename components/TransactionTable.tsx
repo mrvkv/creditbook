@@ -1,3 +1,4 @@
+import { TransactionType } from "@/enums/transaction.enum";
 import tableStylesheet from "@/stylesheets/table.stylesheet";
 import { ITransaction } from "@/types/transaction.interface";
 import * as React from "react";
@@ -12,29 +13,51 @@ const Header = ({ title }: { title: string }) => (
 
 const Cell = ({ content, type }: { content: string; type?: string }) => (
     <DataTable.Cell style={tableStylesheet.cell}>
-        <Text style={{ ...(type && { color: type === "Debit" ? "red" : "green" }) }}>{content}</Text>
+        <Text style={{ ...(type && { color: type === TransactionType.Debit ? "red" : "green" }) }} variant="titleSmall">
+            {content}
+        </Text>
     </DataTable.Cell>
 );
 
-const TransactionTable = ({ items }: { items: ITransaction[] }) => {
+const TransactionTable = ({ transactions, onDelete }: { transactions: ITransaction[]; onDelete: (transaction: ITransaction) => void }) => {
+    function formatDate(date: string): string {
+        const monthMap = {
+            "01": "Jan.",
+            "02": "Feb.",
+            "03": "Mar.",
+            "04": "Apr.",
+            "05": "May",
+            "06": "Jun.",
+            "07": "Jul.",
+            "08": "Aug.",
+            "09": "Sep.",
+            "10": "Oct.",
+            "11": "Nov.",
+            "12": "Dec.",
+        };
+        const today = new Date(date);
+        const dateArray = today.toLocaleDateString("en-GB").replace(/\//g, " ").split(" ");
+        dateArray[1] = monthMap[dateArray[1] as keyof typeof monthMap];
+        return dateArray.join(" ");
+    }
+
     return (
         <View>
             <DataTable>
                 <DataTable.Header>
-                    <Header title="Amount (₹)" />
-                    <Header title="Type" />
+                    <Header title="Amount" />
+                    <Header title="Date" />
                     <Header title="Remark" />
                     <Header title="Action" />
                 </DataTable.Header>
 
-                {items?.map((item, index) => (
-                    <DataTable.Row key={index}>
-                        <Cell content={item.amount.toString()} type={item.type} />
-                        <Cell content={item.type} type={item.type} />
-                        <Cell content={item.remark || "None"} />
+                {transactions?.map((transaction) => (
+                    <DataTable.Row key={transaction.transactionId}>
+                        <Cell content={`₹${transaction.amount.toString()}`} type={transaction.type} />
+                        <Cell content={formatDate(transaction.date)} />
+                        <Cell content={transaction.remark} />
                         <DataTable.Cell style={tableStylesheet.cell}>
-                            <IconButton icon="pencil" size={20} iconColor="blue" />
-                            <IconButton icon="delete" size={20} iconColor="red" />
+                            <IconButton icon="delete" size={20} iconColor="red" onPress={() => onDelete(transaction)} />
                         </DataTable.Cell>
                     </DataTable.Row>
                 ))}
