@@ -44,15 +44,15 @@ const TransactionTable = ({ transactions, onDelete }: { transactions: ITransacti
     return (
         <View>
             <DataTable>
-                <DataTable.Header>
+                <DataTable.Header style={tableStylesheet.header}>
                     <Header title="Amount" />
                     <Header title="Date" />
                     <Header title="Remark" />
                     <Header title="Action" />
                 </DataTable.Header>
 
-                {transactions?.map((transaction) => (
-                    <DataTable.Row key={transaction.transactionId}>
+                {transactions?.map((transaction, index) => (
+                    <DataTable.Row key={transaction.transactionId} style={index % 2 === 0 ? tableStylesheet.rowEven : tableStylesheet.rowOdd}>
                         <Cell content={`₹${transaction.amount.toString()}`} type={transaction.type} />
                         <Cell content={formatDate(transaction.date)} />
                         <Cell content={transaction.remark} />

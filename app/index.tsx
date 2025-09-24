@@ -9,7 +9,7 @@ import { useNavigation, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { View } from "react-native";
-import { Portal } from "react-native-paper";
+import { Portal, Switch, Text } from "react-native-paper";
 
 export default function Index() {
     const db = useSQLiteContext();
@@ -17,12 +17,13 @@ export default function Index() {
     const navigation = useNavigation();
     const headerRight = () => <HeaderRight handler={addUserHandler} />;
 
-    const [users, setUsers] = useState<IUser[]>();
+    const [users, setUsers] = useState<IUser[]>([]);
     const [isVisible, setIsVisible] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
     const [isAdd, setIsAdd] = useState(false);
     const [isDelete, setIsDelete] = useState(false);
     const [selectedUser, setSelectedUser] = useState<IUser>();
+    const [hideSettled, setHideSettled] = useState(false);
 
     useEffect(() => {
         refreshUserList();
@@ -102,7 +103,15 @@ export default function Index() {
                     ></ConfirmationModal>
                 )}
             </Portal>
-            <UserTable users={users!} onDelete={deleteUserHandler} onView={viewUserHandler} onEdit={editUserHandler}></UserTable>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: 10 }}>
+                <Switch value={hideSettled} onValueChange={() => setHideSettled((prev) => !prev)} />;<Text variant="titleSmall">Hide Settled Accounts</Text>
+            </View>
+            <UserTable
+                users={hideSettled ? users.filter((user) => user.balance !== 0) : users}
+                onDelete={deleteUserHandler}
+                onView={viewUserHandler}
+                onEdit={editUserHandler}
+            ></UserTable>
         </View>
     );
 }

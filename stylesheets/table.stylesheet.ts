@@ -5,4 +5,14 @@ export default StyleSheet.create({
         flex: 1,
         justifyContent: "center",
     },
+    rowEven: {
+        backgroundColor: "#ffffff",
+    },
+    rowOdd: {
+        backgroundColor: "#f2f2f2",
+    },
+    header: {
+        borderColor: "black",
+        borderTopWidth: 1,
+    },
 });

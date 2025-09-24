@@ -37,14 +37,14 @@ const UserTable = ({
     return (
         <View>
             <DataTable>
-                <DataTable.Header>
+                <DataTable.Header style={tableStylesheet.header}>
                     <Header title="Name" />
                     <Header title="Balance" />
                     <Header title="Action" />
                 </DataTable.Header>
 
-                {users?.map((user) => (
-                    <DataTable.Row key={user.userId}>
+                {users?.map((user, index) => (
+                    <DataTable.Row key={user.userId} style={index % 2 === 0 ? tableStylesheet.rowEven : tableStylesheet.rowOdd}>
                         <Cell content={user.name}></Cell>
                         <Cell content={user.balance.toString()} type="amount" />
                         <DataTable.Cell style={tableStylesheet.cell}>
