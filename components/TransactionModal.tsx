@@ -29,13 +29,13 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                     status={type === TransactionType.Debit ? "checked" : "unchecked"}
                     onPress={() => setType(TransactionType.Debit)}
                 />
-                <Text>Debit</Text>
+                <Text>Given</Text>
                 <RadioButton
                     value={TransactionType.Credit}
                     status={type === TransactionType.Credit ? "checked" : "unchecked"}
                     onPress={() => setType(TransactionType.Credit)}
                 />
-                <Text>Credit</Text>
+                <Text>Taken</Text>
             </View>
             <TextInput
                 mode="outlined"
