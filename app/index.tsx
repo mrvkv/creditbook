@@ -104,7 +104,8 @@ export default function Index() {
                 )}
             </Portal>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: 10 }}>
-                <Switch value={hideSettled} onValueChange={() => setHideSettled((prev) => !prev)} />;<Text variant="titleSmall">Hide Settled Accounts</Text>
+                <Switch value={hideSettled} onValueChange={() => setHideSettled((prev) => !prev)} />
+                <Text variant="titleSmall">{`${hideSettled ? "Show" : "Hide"} Settled Accounts`}</Text>
             </View>
             <UserTable
                 users={hideSettled ? users.filter((user) => user.balance !== 0) : users}
