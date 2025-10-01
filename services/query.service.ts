@@ -25,16 +25,15 @@ export default class QueryService {
 
         tables.forEach((table) => {
             const schema = TableSchema[table];
-            const columns = Object.keys(schema).map((key) =>
-                [key, schema[key].type, schema[key].constraints.join(" ")].join(" ")
-            );
+            const columns = Object.keys(schema).map((key) => [key, schema[key].type, schema[key].constraints.join(" ")].join(" "));
             query += `CREATE TABLE IF NOT EXISTS ${table} (${columns});`;
         });
 
         return query;
     }
 
-    public static list(table: string): string {
-        return `SELECT * from ${table}`;
+    public static list(table: string, column?: string, direction: "ASC" | "DESC" = "DESC"): string {
+        const orderBy = column ? `ORDER BY ${column} ${direction}` : "";
+        return `SELECT * from ${table} ${orderBy}`;
     }
 }

@@ -8,12 +8,22 @@ import QueryService from "./query.service";
 export default class DatabaseService {
     public static async migrate(db: SQLite.SQLiteDatabase): Promise<void> {
         let isChanged = false;
+        let freshInstall = false;
         let { user_version: currentDbVersion } = db.getFirstSync("PRAGMA user_version") as { user_version: number };
 
         if (currentDbVersion === 0) {
+            freshInstall = true;
             db.execSync(QueryService.init());
             db.execSync(QueryService.setDefaults());
             currentDbVersion = 1;
+            isChanged = true;
+        }
+
+        if (currentDbVersion === 1) {
+            if (freshInstall) {
+                db.execSync("ALTER TABLE users ADD COLUMN lastUpdated TEXT DEFAULT ''");
+            }
+            currentDbVersion = 2;
             isChanged = true;
         }
 
@@ -21,12 +31,12 @@ export default class DatabaseService {
     }
 
     public static getUsers(db: SQLite.SQLiteDatabase): IUser[] {
-        return db.getAllSync(QueryService.list(Tables.User));
+        return db.getAllSync(QueryService.list(Tables.User, "lastUpdated", "DESC"));
     }
 
     public static createUser(db: SQLite.SQLiteDatabase, userName: string): void {
         const { userId: counter } = db.getFirstSync("SELECT userId from counters") as { userId: number };
-        db.runSync("INSERT INTO users (userId, name, balance) VALUES (?, ?, ?)", counter + 1, userName, 0);
+        db.runSync("INSERT INTO users (userId, name, balance, lastUpdated) VALUES (?, ?, ?, ?)", counter + 1, userName, 0, "");
         db.runSync("UPDATE counters SET userId = ?", counter + 1);
     }
 
@@ -60,7 +70,7 @@ export default class DatabaseService {
         } else {
             balance += amount;
         }
-        db.runSync("UPDATE users SET balance = ? WHERE userId = ?", balance, userId);
+        db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, new Date().toISOString(), userId);
         db.runSync("UPDATE counters SET transactionId = ?", counter + 1);
     }
 
@@ -72,6 +82,6 @@ export default class DatabaseService {
         } else {
             balance = balance - amount;
         }
-        db.runSync("UPDATE users SET balance = ? WHERE userId = ?", balance, userId);
+        db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, new Date().toISOString(), userId);
     }
 }

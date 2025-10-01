@@ -66,5 +66,9 @@ export default {
             constraints: [DbConstraint.NotNull],
             default: 0,
         },
+        lastUpdated: {
+            type: DbDataType.Text,
+            constraints: [`${DbConstraint.Default} ''`] as unknown as DbConstraint[],
+        },
     },
 } as ITableSchema;
