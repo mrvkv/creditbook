@@ -1,3 +1,4 @@
+import EmptyState from "@/components/EmptyState";
 import { TransactionType } from "@/enums/transaction.enum";
 import tableStylesheet from "@/stylesheets/table.stylesheet";
 import { ITransaction } from "@/types/transaction.interface";
@@ -42,26 +43,30 @@ const TransactionTable = ({ transactions, onDelete }: { transactions: ITransacti
     }
 
     return (
-        <View>
-            <DataTable>
-                <DataTable.Header style={tableStylesheet.header}>
-                    <Header title="Amount" />
-                    <Header title="Date" />
-                    <Header title="Remark" />
-                    <Header title="Action" />
-                </DataTable.Header>
+        <View style={{ flex: 1 }}>
+            {!transactions || transactions.length === 0 ? (
+                <EmptyState icon="file-document-outline" title="No transactions found" subtitle="Add a transaction to get started" />
+            ) : (
+                <DataTable>
+                    <DataTable.Header style={tableStylesheet.header}>
+                        <Header title="Amount" />
+                        <Header title="Date" />
+                        <Header title="Remark" />
+                        <Header title="Action" />
+                    </DataTable.Header>
 
-                {transactions?.map((transaction, index) => (
-                    <DataTable.Row key={transaction.transactionId} style={index % 2 === 0 ? tableStylesheet.rowEven : tableStylesheet.rowOdd}>
-                        <Cell content={`₹${transaction.amount.toString()}`} type={transaction.type} />
-                        <Cell content={formatDate(transaction.date)} />
-                        <Cell content={transaction.remark} />
-                        <DataTable.Cell style={tableStylesheet.cell}>
-                            <IconButton icon="delete" size={20} iconColor="red" onPress={() => onDelete(transaction)} />
-                        </DataTable.Cell>
-                    </DataTable.Row>
-                ))}
-            </DataTable>
+                    {transactions?.map((transaction, index) => (
+                        <DataTable.Row key={transaction.transactionId} style={index % 2 === 0 ? tableStylesheet.rowEven : tableStylesheet.rowOdd}>
+                            <Cell content={`₹${transaction.amount.toString()}`} type={transaction.type} />
+                            <Cell content={formatDate(transaction.date)} />
+                            <Cell content={transaction.remark} />
+                            <DataTable.Cell style={tableStylesheet.cell}>
+                                <IconButton icon="delete" size={20} iconColor="red" onPress={() => onDelete(transaction)} />
+                            </DataTable.Cell>
+                        </DataTable.Row>
+                    ))}
+                </DataTable>
+            )}
         </View>
     );
 };

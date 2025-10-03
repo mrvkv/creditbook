@@ -62,7 +62,7 @@ export default function Details() {
     }
 
     return (
-        <View>
+        <View style={{ flex: 1 }}>
             <Portal>
                 {!isDelete && (
                     <Modal isVisible={isVisible} setVisibility={setIsVisible}>

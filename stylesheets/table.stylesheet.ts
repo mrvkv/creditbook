@@ -13,6 +13,6 @@ export default StyleSheet.create({
     },
     header: {
         borderColor: "black",
-        borderTopWidth: 1,
+        borderTopWidth: 0,
     },
 });

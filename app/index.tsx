@@ -83,7 +83,7 @@ export default function Index() {
     }
 
     return (
-        <View>
+        <View style={{ flex: 1 }}>
             <Portal>
                 {(isAdd || isEdit) && (
                     <Modal isVisible={isVisible} setVisibility={setIsVisible}>
@@ -103,10 +103,12 @@ export default function Index() {
                     ></ConfirmationModal>
                 )}
             </Portal>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: 10 }}>
-                <Switch value={hideSettled} onValueChange={() => setHideSettled((prev) => !prev)} />
-                <Text variant="titleSmall">{`${hideSettled ? "Show" : "Hide"} Settled Accounts`}</Text>
-            </View>
+            {!!users.length && !!users.filter((user) => user.balance === 0).length && !!users.filter((user) => user.balance !== 0).length && (
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: 10 }}>
+                    <Switch value={hideSettled} onValueChange={() => setHideSettled((prev) => !prev)} />
+                    <Text variant="titleSmall">{`${hideSettled ? "Show" : "Hide"} Settled Accounts`}</Text>
+                </View>
+            )}
             <UserTable
                 users={hideSettled ? users.filter((user) => user.balance !== 0) : users}
                 onDelete={deleteUserHandler}
