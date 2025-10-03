@@ -9,10 +9,12 @@ export default StyleSheet.create({
         backgroundColor: "#ffffff",
     },
     rowOdd: {
-        backgroundColor: "#f2f2f2",
+        backgroundColor: "#f9f9f9",
     },
     header: {
-        borderColor: "black",
+        borderColor: "#e0e0e0",
         borderTopWidth: 0,
+        borderBottomWidth: 1,
+        borderBottomColor: "#e0e0e0",
     },
 });
