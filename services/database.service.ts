@@ -20,7 +20,7 @@ export default class DatabaseService {
         }
 
         if (currentDbVersion === 1) {
-            if (freshInstall) {
+            if (!freshInstall) {
                 db.execSync("ALTER TABLE users ADD COLUMN lastUpdated TEXT DEFAULT ''");
             }
             currentDbVersion = 2;
