@@ -8,21 +8,15 @@ import QueryService from "./query.service";
 export default class DatabaseService {
     public static async migrate(db: SQLite.SQLiteDatabase): Promise<void> {
         let isChanged = false;
-        let freshInstall = false;
         let { user_version: currentDbVersion } = db.getFirstSync("PRAGMA user_version") as { user_version: number };
-
+        console.log("currentDbVersion", currentDbVersion);
         if (currentDbVersion === 0) {
-            freshInstall = true;
             db.execSync(QueryService.init());
             db.execSync(QueryService.setDefaults());
-            currentDbVersion = 1;
+            currentDbVersion = 2;
             isChanged = true;
-        }
-
-        if (currentDbVersion === 1) {
-            if (!freshInstall) {
-                db.execSync("ALTER TABLE users ADD COLUMN lastUpdated TEXT DEFAULT ''");
-            }
+        } else if (currentDbVersion === 1) {
+            db.execSync("ALTER TABLE users ADD COLUMN lastUpdated TEXT DEFAULT ''");
             currentDbVersion = 2;
             isChanged = true;
         }
