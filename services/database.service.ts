@@ -9,15 +9,11 @@ export default class DatabaseService {
     public static async migrate(db: SQLite.SQLiteDatabase): Promise<void> {
         let isChanged = false;
         let { user_version: currentDbVersion } = db.getFirstSync("PRAGMA user_version") as { user_version: number };
-        console.log("currentDbVersion", currentDbVersion);
+
         if (currentDbVersion === 0) {
             db.execSync(QueryService.init());
             db.execSync(QueryService.setDefaults());
-            currentDbVersion = 2;
-            isChanged = true;
-        } else if (currentDbVersion === 1) {
-            db.execSync("ALTER TABLE users ADD COLUMN lastUpdated TEXT DEFAULT ''");
-            currentDbVersion = 2;
+            currentDbVersion = 1;
             isChanged = true;
         }
 
