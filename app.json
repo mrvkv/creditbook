@@ -1,19 +1,21 @@
 {
     "expo": {
-        "name": "Credit Book",
+        "name": "CreditBook",
         "slug": "creditbook",
         "version": "1.0.0",
         "orientation": "portrait",
-        "icon": "./assets/images/icon.png",
+        "icon": "./assets/images/creditbook-logo.png",
         "scheme": "creditbook",
         "userInterfaceStyle": "automatic",
-        "newArchEnabled": true,
+        "jsEngine": "hermes",
         "android": {
             "adaptiveIcon": {
-                "foregroundImage": "./assets/images/adaptive-icon.png",
-                "backgroundColor": "#ffffff"
+                "foregroundImage": "./assets/images/creditbook-logo.png",
+                "backgroundColor": "#4F46E5"
             },
             "edgeToEdgeEnabled": true,
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
             "package": "com.mockday.vivek.creditbook"
         },
         "plugins": [
@@ -21,17 +23,16 @@
             [
                 "expo-splash-screen",
                 {
-                    "image": "./assets/images/splash-icon.png",
+                    "image": "./assets/images/creditbook-splash.png",
                     "imageWidth": 200,
                     "resizeMode": "contain",
-                    "backgroundColor": "#ffffff"
+                    "backgroundColor": "#4F46E5"
                 }
             ],
             [
                 "expo-sqlite",
                 {
-                    "enableFTS": true,
-                    "useSQLCipher": true
+                    "enableFTS": true
                 }
             ]
         ],
