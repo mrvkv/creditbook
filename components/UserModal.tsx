@@ -1,4 +1,4 @@
-import modalStylesheet from "@/stylesheets/modal.stylesheet";
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { useState } from "react";
 import { View } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
@@ -11,29 +11,81 @@ interface IUserModalProps {
 }
 
 export default function UserModal({ onSubmit, setVisibility, userName, userId }: IUserModalProps) {
+    const { colors } = useAppTheme();
     const [name, setName] = useState(userName || "");
-    let modalTitle = "Add Account";
-
-    if (userName) {
-        modalTitle = "Edit Account";
-    }
+    const isEdit = !!userName;
+    const modalTitle = isEdit ? "Edit Account" : "Add Account";
+    const modalSubtitle = isEdit ? "Update the account name below." : "Enter a name for the new account.";
 
     return (
         <View>
-            <Text variant="titleMedium" style={modalStylesheet.text}>
-                {modalTitle}
-            </Text>
-            <TextInput mode="outlined" style={modalStylesheet.textInput} label="Account Name" value={name} onChangeText={(text) => setName(text)} />
-            <Button
-                style={modalStylesheet.button}
-                mode="contained"
-                onPress={() => {
-                    onSubmit(userId!, name);
-                    setVisibility(false);
+            {/* Header */}
+            <View
+                style={{
+                    paddingTop: 24,
+                    paddingBottom: 16,
+                    paddingHorizontal: 24,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                    marginBottom: 20,
                 }}
             >
-                Submit
-            </Button>
+                <Text
+                    variant="titleLarge"
+                    style={{
+                        color: colors.onSurface,
+                        fontWeight: "700",
+                        marginBottom: 4,
+                    }}
+                >
+                    {modalTitle}
+                </Text>
+                <Text
+                    variant="bodySmall"
+                    style={{ color: colors.onSurfaceMuted }}
+                >
+                    {modalSubtitle}
+                </Text>
+            </View>
+
+            {/* Input */}
+            <TextInput
+                mode="outlined"
+                style={{
+                    marginHorizontal: 20,
+                    marginBottom: 20,
+                    backgroundColor: colors.surface,
+                }}
+                label="Account Name"
+                value={name}
+                onChangeText={(text) => setName(text)}
+                left={<TextInput.Icon icon="account" />}
+                outlineStyle={{ borderRadius: 12 }}
+            />
+
+            {/* Actions */}
+            <View style={{ flexDirection: "row", paddingHorizontal: 20, gap: 10, marginBottom: 8 }}>
+                <Button
+                    mode="outlined"
+                    style={{ flex: 1, borderRadius: 12, borderColor: colors.border }}
+                    labelStyle={{ color: colors.onSurfaceVariant }}
+                    onPress={() => setVisibility(false)}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    mode="contained"
+                    style={{ flex: 1, borderRadius: 12 }}
+                    onPress={() => {
+                        if (name.trim()) {
+                            onSubmit(userId!, name.trim());
+                            setVisibility(false);
+                        }
+                    }}
+                >
+                    {isEdit ? "Update" : "Add Account"}
+                </Button>
+            </View>
         </View>
     );
 }

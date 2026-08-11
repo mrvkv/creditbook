@@ -1,15 +1,18 @@
 import ConfirmationModal from "@/components/ConfirmationModal";
 import HeaderLeft from "@/components/HeaderLeft";
 import HeaderRight from "@/components/HeaderRight";
+import { TransactionsHeaderTitle } from "@/components/HeaderTitle";
 import Modal from "@/components/Modal";
 import TransactionModal from "@/components/TransactionModal";
 import TransactionTable from "@/components/TransactionTable";
+import { ThemeContext, useAppTheme } from "@/hooks/useAppTheme";
 import DatabaseService from "@/services/database.service";
 import { ITransaction } from "@/types/transaction.interface";
+import { IUser } from "@/types/user.interface";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useEffect, useLayoutEffect, useState } from "react";
-import { View } from "react-native";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { BackHandler, View } from "react-native";
 import { Portal } from "react-native-paper";
 
 export default function Details() {
@@ -17,32 +20,68 @@ export default function Details() {
     const router = useRouter();
     const navigation = useNavigation();
     const { userId } = useLocalSearchParams() as unknown as { userId: string };
-    const headerRight = () => <HeaderRight handler={addTransactionHandler} />;
-    const headerLeft = () => <HeaderLeft handler={navigateToHome} />;
+    const appTheme = useAppTheme();
+    const { colors } = appTheme;
 
     const [transactions, setTransactions] = useState<ITransaction[]>([]);
+    const [userName, setUserName] = useState<string>("");
     const [isVisible, setIsVisible] = useState(false);
     const [isDelete, setIsDelete] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<ITransaction>();
 
+    // Safe back navigation — works whether or not there is a stack entry above
+    const navigateToHome = useCallback(() => {
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace("/");
+        }
+    }, [router]);
+
+    // Android hardware back button support
+    useEffect(() => {
+        const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+            navigateToHome();
+            return true; // prevent default (app exit)
+        });
+        return () => subscription.remove();
+    }, [navigateToHome]);
+
     useEffect(() => {
         refreshTransactionList();
+        // Fetch user name to display in header
+        const users: IUser[] = DatabaseService.getUsers(db);
+        const user = users.find((u) => u.userId === parseInt(userId));
+        if (user) setUserName(user.name);
     }, []);
+
     useLayoutEffect(() => {
+        const headerRight = () => (
+            <ThemeContext.Provider value={appTheme}>
+                <HeaderRight handler={addTransactionHandler} />
+            </ThemeContext.Provider>
+        );
+        const headerLeft = () => (
+            <ThemeContext.Provider value={appTheme}>
+                <HeaderLeft handler={navigateToHome} />
+            </ThemeContext.Provider>
+        );
+        const headerTitle = () => (
+            <ThemeContext.Provider value={appTheme}>
+                <TransactionsHeaderTitle userName={userName} />
+            </ThemeContext.Provider>
+        );
         navigation.setOptions({
             headerLeft,
             headerRight,
+            headerTitle,
+            headerStyle: { backgroundColor: colors.headerBg },
+            headerTintColor: colors.headerText,
         });
-    }, []);
+    }, [userName, appTheme, navigateToHome]);
 
     function refreshTransactionList(): void {
         setTransactions(DatabaseService.getTransactions(db, parseInt(userId)));
-    }
-
-    function navigateToHome(): void {
-        router.replace({
-            pathname: "/",
-        });
     }
 
     function addTransactionHandler(): void {
@@ -62,24 +101,30 @@ export default function Details() {
     }
 
     return (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
             <Portal>
-                {!isDelete && (
-                    <Modal isVisible={isVisible} setVisibility={setIsVisible}>
-                        <TransactionModal userId={userId} setVisibility={setIsVisible} refreshTransactionList={refreshTransactionList}></TransactionModal>
-                    </Modal>
-                )}
-                {isDelete && (
-                    <ConfirmationModal
-                        message="Are you sure, you want to delete the transaction?"
-                        setIsVisible={setIsVisible}
-                        onSubmit={() => deleteTransaction()}
-                        onCancel={() => {}}
-                        isVisible={isVisible}
-                    ></ConfirmationModal>
-                )}
+                <ThemeContext.Provider value={appTheme}>
+                    {!isDelete && (
+                        <Modal isVisible={isVisible} setVisibility={setIsVisible}>
+                            <TransactionModal
+                                userId={userId}
+                                setVisibility={setIsVisible}
+                                refreshTransactionList={refreshTransactionList}
+                            />
+                        </Modal>
+                    )}
+                    {isDelete && (
+                        <ConfirmationModal
+                            message="Are you sure you want to delete this transaction? This action cannot be undone."
+                            setIsVisible={setIsVisible}
+                            onSubmit={() => deleteTransaction()}
+                            onCancel={() => {}}
+                            isVisible={isVisible}
+                        />
+                    )}
+                </ThemeContext.Provider>
             </Portal>
-            <TransactionTable transactions={transactions} onDelete={deleteTransactionHandler}></TransactionTable>;
+            <TransactionTable transactions={transactions} onDelete={deleteTransactionHandler} />
         </View>
     );
 }
