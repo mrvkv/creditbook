@@ -27,7 +27,21 @@ export default function Index() {
     const [isAdd, setIsAdd] = useState(false);
     const [isDelete, setIsDelete] = useState(false);
     const [selectedUser, setSelectedUser] = useState<IUser>();
-    const [hideSettled, setHideSettled] = useState(false);
+    const [hideSettled, setHideSettled] = useState<boolean>(() => {
+        try {
+            return DatabaseService.getPreference(db, "hideSettled", "false") === "true";
+        } catch {
+            return false;
+        }
+    });
+
+    const toggleHideSettled = useCallback(() => {
+        setHideSettled((prev) => {
+            const next = !prev;
+            DatabaseService.setPreference(db, "hideSettled", String(next));
+            return next;
+        });
+    }, [db]);
 
     const refreshUserList = useCallback(() => {
         setUsers(DatabaseService.getUsers(db));
@@ -148,7 +162,7 @@ export default function Index() {
                         {hideSettled ? "Show" : "Hide"} Settled
                     </Text>
                     <Pressable
-                        onPress={() => setHideSettled((prev) => !prev)}
+                        onPress={toggleHideSettled}
                         style={{
                             width: 44,
                             height: 24,

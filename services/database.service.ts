@@ -17,7 +17,26 @@ export default class DatabaseService {
             isChanged = true;
         }
 
+        if (currentDbVersion === 1) {
+            db.execSync("CREATE TABLE IF NOT EXISTS preferences (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);");
+            currentDbVersion = 2;
+            isChanged = true;
+        }
+
         isChanged && db.execSync(`PRAGMA user_version = ${currentDbVersion}`);
+    }
+
+    public static getPreference(db: SQLite.SQLiteDatabase, key: string, defaultValue: string = ""): string {
+        try {
+            const row = db.getFirstSync("SELECT value FROM preferences WHERE key = ?", key) as { value: string } | null;
+            return row?.value ?? defaultValue;
+        } catch {
+            return defaultValue;
+        }
+    }
+
+    public static setPreference(db: SQLite.SQLiteDatabase, key: string, value: string): void {
+        db.runSync("INSERT OR REPLACE INTO preferences (key, value) VALUES (?, ?)", key, value);
     }
 
     public static getUsers(db: SQLite.SQLiteDatabase): IUser[] {

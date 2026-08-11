@@ -13,6 +13,7 @@ export enum Tables {
     User = "users",
     Transaction = "transactions",
     Counter = "counters",
+    Preference = "preferences",
 }
 
 export default {
@@ -23,6 +24,16 @@ export default {
         },
         transactionId: {
             type: DbDataType.Int,
+            constraints: [DbConstraint.NotNull],
+        },
+    },
+    preferences: {
+        key: {
+            type: DbDataType.Text,
+            constraints: [DbConstraint.PrimaryKey, DbConstraint.NotNull],
+        },
+        value: {
+            type: DbDataType.Text,
             constraints: [DbConstraint.NotNull],
         },
     },
