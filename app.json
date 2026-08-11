@@ -10,7 +10,7 @@
         "jsEngine": "hermes",
         "android": {
             "adaptiveIcon": {
-                "foregroundImage": "./assets/images/creditbook-logo.png",
+                "foregroundImage": "./assets/images/adaptive-icon.png",
                 "backgroundColor": "#4F46E5"
             },
             "edgeToEdgeEnabled": true,
