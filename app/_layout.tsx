@@ -56,6 +56,7 @@ export default function RootLayout() {
                             name="index"
                             options={{
                                 title: "Credit Book",
+                                headerTitleAlign: "left",
                                 headerTitle: () => (
                                     <ThemeContext.Provider value={appTheme}>
                                         <HomeHeaderTitle />

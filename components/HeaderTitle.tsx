@@ -6,56 +6,74 @@ import { Icon, Text } from "react-native-paper";
  * Attractive logo mark: rounded square with a book-rupee icon,
  * matching the indigo brand color.
  */
-export function LogoBadge({ size = 30 }: { size?: number }) {
-    const { colors, isDark } = useAppTheme();
+export function LogoBadge({ size = 36 }: { size?: number }) {
+    const { isDark } = useAppTheme();
+    const outerRadius = size * 0.28;
+    const innerRadius = size * 0.22;
+    const innerSize = size * 0.78;
+
     return (
         <View
             style={{
                 width: size,
                 height: size,
-                borderRadius: size * 0.26,
-                backgroundColor: isDark ? "rgba(129,140,248,0.25)" : "rgba(255,255,255,0.22)",
+                borderRadius: outerRadius,
+                backgroundColor: isDark ? "rgba(129,140,248,0.2)" : "rgba(255,255,255,0.18)",
                 borderWidth: 1.5,
-                borderColor: isDark ? "rgba(129,140,248,0.5)" : "rgba(255,255,255,0.45)",
+                borderColor: isDark ? "rgba(129,140,248,0.45)" : "rgba(255,255,255,0.38)",
                 alignItems: "center",
                 justifyContent: "center",
             }}
         >
-            <Icon
-                source="book-open-variant"
-                size={size * 0.58}
-                color={isDark ? "#818CF8" : "#ffffff"}
-            />
+            <View
+                style={{
+                    width: innerSize,
+                    height: innerSize,
+                    borderRadius: innerRadius,
+                    backgroundColor: isDark ? "rgba(129,140,248,0.25)" : "rgba(255,255,255,0.14)",
+                    borderWidth: 1,
+                    borderColor: isDark ? "rgba(129,140,248,0.5)" : "rgba(255,255,255,0.28)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                }}
+            >
+                <Icon
+                    source="book-open-variant"
+                    size={size * 0.46}
+                    color={isDark ? "#818CF8" : "#ffffff"}
+                />
+            </View>
         </View>
     );
 }
 
 /**
- * Home screen header title — logo badge + "Credit Book" with a
- * subtle "by you" tagline.
+ * Home screen header title — logo badge + "CreditBook" with a
+ * "PERSONAL LEDGER" tagline, matching splash screen.
  */
 export function HomeHeaderTitle() {
     const { isDark } = useAppTheme();
     const textColor = isDark ? "#CDD6F4" : "#ffffff";
-    const subColor = isDark ? "rgba(205,214,244,0.6)" : "rgba(255,255,255,0.7)";
+    const subColor = isDark ? "rgba(205,214,244,0.6)" : "rgba(255,255,255,0.65)";
+    const purpleColor = "#C4B5FD";
 
     return (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <LogoBadge size={32} />
+            <LogoBadge size={36} />
             <View>
                 <Text
                     style={{
                         color: textColor,
-                        fontSize: 18,
-                        fontWeight: "800",
-                        letterSpacing: 0.2,
-                        lineHeight: 20,
+                        fontSize: 19,
+                        fontWeight: "900",
+                        letterSpacing: -0.2,
+                        lineHeight: 22,
                     }}
                 >
-                    Credit<Text style={{ color: isDark ? "#A78BFA" : "rgba(255,255,255,0.85)", fontWeight: "800" }}>Book</Text>
+                    Credit<Text style={{ color: purpleColor, fontWeight: "900" }}>Book</Text>
                 </Text>
-                <Text style={{ color: subColor, fontSize: 10, letterSpacing: 0.5, lineHeight: 12 }}>
-                    Personal Ledger
+                <Text style={{ color: subColor, fontSize: 9, letterSpacing: 1.8, lineHeight: 12, fontWeight: "600" }}>
+                    PERSONAL LEDGER
                 </Text>
             </View>
         </View>
