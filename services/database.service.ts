@@ -24,6 +24,117 @@ export default class DatabaseService {
         }
 
         isChanged && db.execSync(`PRAGMA user_version = ${currentDbVersion}`);
+        DatabaseService.seedSampleData(db);
+    }
+
+    public static seedSampleData(db: SQLite.SQLiteDatabase, force: boolean = false): void {
+        // Only run sample data seeding in development mode (__DEV__)
+        // or if explicitly enabled via EXPO_PUBLIC_ENABLE_SEEDING=true
+        const explicitFlag = process.env.EXPO_PUBLIC_ENABLE_SEEDING;
+        if (explicitFlag === "false" || (!__DEV__ && explicitFlag !== "true")) {
+            return;
+        }
+
+        const userCountRow = db.getFirstSync("SELECT COUNT(*) as count FROM users") as { count: number } | null;
+        if (!force && (userCountRow?.count ?? 0) >= 100) {
+            return;
+        }
+
+        const sampleNames = [
+            "Rahul Sharma", "Priya Patel", "Amit Verma", "Ananya Roy", "Vikram Singh",
+            "Neha Gupta", "Rajesh Kumar", "Sneha Reddy", "Suresh Nair", "Pooja Joshi",
+            "Deepak Malhotra", "Kavita Choudhary", "Manoj Tiwari", "Ritu Saxena", "Manish Agrawal",
+            "Swati Deshmukh", "Sanjay Kapoor", "Meera Iyer", "Alok Mishra", "Divya Pillai",
+            "Pankaj Yadav", "Sunita Bhatia", "Nitin Kulkarni", "Rashmi Rao", "Gaurav Das",
+            "Shilpa Jain", "Tarun Mehta", "Neeta Pandey", "Harish Bhasin", "Jyoti Sen",
+            "Akash Dutta", "Nisha Bansal", "Kunal Saxena", "Simran Arora", "Vivek Anand",
+            "Aarti Sharma", "Siddharth Roy", "Trisha Kapoor", "Rohan Varma", "Isha Gupta",
+            "Varun Nair", "Tanvi Kulkarni", "Devendra Singh", "Bhavna Patel", "Abhinav Reddy",
+            "Shalini Malhotra", "Chetan Joshi", "Payal Agrawal", "Sandeep Kumar", "Priyanka Sen",
+            "Mohit Verma", "Anushree Pillai", "Rishabh Choudhary", "Monica Bhatia", "Yash Deshmukh",
+            "Shruti Iyer", "Pradeep Mishra", "Komal Yadav", "Arvind Rao", "Namrata Jain",
+            "Sachin Bhasin", "Archana Mehta", "Sameer Pandey", "Ritu Sen", "Nikhil Dutta",
+            "Sonam Bansal", "Hemant Saxena", "Vandana Arora", "Chirag Anand", "Surbhi Sharma",
+            "Krunal Patel", "Niharika Roy", "Ashish Varma", "Preeti Gupta", "Tushar Nair",
+            "Garima Kulkarni", "Deepak Singh", "Richa Malhotra", "Mayank Joshi", "Dipika Agrawal",
+            "Saurabh Kumar", "Barkha Sen", "Rajiv Verma", "Rekha Pillai", "Lokesh Choudhary",
+            "Seema Bhatia", "Umang Deshmukh", "Latika Iyer", "Kapil Mishra", "Pallavi Yadav",
+            "Jayant Rao", "Anita Jain", "Sumit Bhasin", "Vandana Mehta", "Kapil Pandey",
+            "Neeta Sen", "Paras Dutta", "Ishita Bansal", "Himanshu Saxena", "Reena Arora"
+        ];
+
+        const remarksList = [
+            "Tea & Snacks", "Groceries", "UPI Transfer", "Lunch bill", "Borrowed cash",
+            "Payment received", "Stationery", "Dinner share", "Fuel charges", "Rent contribution",
+            "Mobile recharge", "Medicine purchase", "Coffee & Pastry", "Auto fare", "Shopping",
+            "Salary credit", "Client invoice", "Hardware purchase", "Vendor payout", "Electricity bill"
+        ];
+
+        const amounts = [15, 30, 50, 75, 100, 150, 200, 250, 350, 450, 500, 1000, 2500, 5000];
+
+        db.withTransactionSync(() => {
+            const counterRow = db.getFirstSync("SELECT userId, transactionId FROM counters") as { userId: number; transactionId: number } | null;
+            let currentUserId = counterRow?.userId ?? 0;
+            let currentTxId = counterRow?.transactionId ?? 0;
+
+            sampleNames.forEach((name, index) => {
+                const existing = db.getFirstSync("SELECT userId FROM users WHERE name = ?", name);
+                if (existing) return;
+
+                currentUserId += 1;
+                const uId = currentUserId;
+
+                // Determine transaction count for user:
+                // 15% users: 0 transactions (empty)
+                // 15% users: Heavy volume (500 to 5,000 transactions!)
+                // 20% users: Moderate volume (100 to 500 transactions)
+                // 50% users: Standard volume (5 to 50 transactions)
+                let txCount = 0;
+                if (index % 8 === 0) {
+                    txCount = 0; // Empty transactions
+                } else if (index % 10 === 1 || index % 10 === 6) {
+                    txCount = 500 + ((index * 373) % 4500); // Heavy: 500 to 5,000 transactions!
+                } else if (index % 4 === 2) {
+                    txCount = 100 + ((index * 41) % 400); // 100 to 500 transactions
+                } else {
+                    txCount = 5 + ((index * 13) % 45); // 5 to 50 transactions
+                }
+
+                let userBalance = 0;
+                const baseDate = Date.now();
+
+                for (let t = 0; t < txCount; t++) {
+                    currentTxId += 1;
+                    const amt = amounts[(index + t) % amounts.length];
+                    const type = (t % 2 === 0) ? TransactionType.Debit : TransactionType.Credit;
+                    const remark = remarksList[(index + t) % remarksList.length];
+
+                    const txDate = new Date(baseDate - t * 3600000 * 3).toISOString();
+
+                    if (type === TransactionType.Debit) {
+                        userBalance -= amt;
+                    } else {
+                        userBalance += amt;
+                    }
+
+                    db.runSync(
+                        "INSERT INTO transactions (transactionId, userId, amount, type, date, remark) VALUES (?, ?, ?, ?, ?, ?)",
+                        currentTxId, uId, amt, type, txDate, remark
+                    );
+                }
+
+                db.runSync(
+                    "INSERT INTO users (userId, name, balance, lastUpdated) VALUES (?, ?, ?, ?)",
+                    uId, name, userBalance, new Date().toISOString()
+                );
+            });
+
+            if (!counterRow) {
+                db.runSync("INSERT INTO counters (userId, transactionId) VALUES (?, ?)", currentUserId, currentTxId);
+            } else {
+                db.runSync("UPDATE counters SET userId = ?, transactionId = ?", currentUserId, currentTxId);
+            }
+        });
     }
 
     public static getPreference(db: SQLite.SQLiteDatabase, key: string, defaultValue: string = ""): string {

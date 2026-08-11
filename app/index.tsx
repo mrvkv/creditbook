@@ -44,6 +44,9 @@ export default function Index() {
     }, [db]);
 
     const refreshUserList = useCallback(() => {
+        if (__DEV__) {
+            DatabaseService.seedSampleData(db);
+        }
         setUsers(DatabaseService.getUsers(db));
     }, [db]);
 
@@ -67,6 +70,7 @@ export default function Index() {
         navigation.setOptions({
             headerRight,
             headerTitle,
+            headerTitleAlign: "left",
             headerStyle: { backgroundColor: colors.headerBg },
             headerTintColor: colors.headerText,
         });
