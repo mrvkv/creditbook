@@ -2,8 +2,8 @@ import EmptyState from "@/components/EmptyState";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { IUser } from "@/types/user.interface";
 import * as React from "react";
-import { useMemo } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, Pressable, ScrollView, View } from "react-native";
 import { Icon, Text } from "react-native-paper";
 
 // ─── Summary chip ──────────────────────────────────────────────────────────
@@ -26,17 +26,17 @@ const SummaryChip = ({
         style={{
             flexDirection: "row",
             alignItems: "center",
-            paddingHorizontal: 10,
+            paddingHorizontal: 11,
             paddingVertical: 6,
             borderRadius: 20,
             backgroundColor: bgColor,
             borderWidth: 1,
             borderColor: borderColor,
-            gap: 5,
+            gap: 6,
         }}
     >
-        <Icon source={icon} size={13} color={textColor} />
-        <Text style={{ color: textColor, fontSize: 12, fontWeight: "600" }}>
+        <Icon source={icon} size={14} color={textColor} />
+        <Text style={{ color: textColor, fontSize: 12, fontWeight: "700" }}>
             {label}: {value}
         </Text>
     </View>
@@ -65,12 +65,15 @@ const UserRow = ({
     const displayAmount = `₹${Math.abs(user.balance).toLocaleString("en-IN")}`;
 
     // Avatar initials
-    const initials = user.name
-        .split(" ")
-        .map((w) => w[0])
-        .join("")
-        .substring(0, 2)
-        .toUpperCase();
+    const initials =
+        user.name
+            .trim()
+            .split(/\s+/)
+            .map((w) => w[0])
+            .filter(Boolean)
+            .join("")
+            .substring(0, 2)
+            .toUpperCase() || "?";
 
     return (
         <Pressable
@@ -214,6 +217,7 @@ const UserTable = ({
     onEdit: (user: IUser) => void;
 }) => {
     const { colors } = useAppTheme();
+    const [visibleLimit, setVisibleLimit] = useState(25);
 
     const totals = useMemo(() => {
         const receivable = users?.filter((u) => u.balance < 0).reduce((sum, u) => sum + Math.abs(u.balance), 0) || 0;
@@ -223,80 +227,101 @@ const UserTable = ({
         return { receivable, payable, count, settled };
     }, [users]);
 
+    const visibleUsers = useMemo(() => {
+        return (users || []).slice(0, visibleLimit);
+    }, [users, visibleLimit]);
+
+    const loadMore = () => {
+        if (visibleLimit < (users?.length || 0)) {
+            setVisibleLimit((prev) => prev + 25);
+        }
+    };
+
     if (!users || users.length === 0) {
         return <EmptyState icon="account-off-outline" title="No accounts found" subtitle="Tap the + button to add your first account" />;
     }
 
     return (
         <View style={{ flex: 1 }}>
-            {/* Summary bar */}
+            {/* Summary bar — single-line horizontal scrollable row */}
             <View
                 style={{
-                    flexDirection: "row",
-                    flexWrap: "wrap",
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    gap: 8,
                     backgroundColor: colors.surface,
                     borderBottomWidth: 1,
                     borderBottomColor: colors.border,
                 }}
             >
-                <SummaryChip
-                    icon="account-group"
-                    label="Accounts"
-                    value={totals.count.toString()}
-                    bgColor={colors.chipAccountBg}
-                    textColor={colors.chipAccountText}
-                    borderColor={colors.primary + "30"}
-                />
-                {totals.receivable > 0 && (
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        gap: 8,
+                        alignItems: "center",
+                    }}
+                >
                     <SummaryChip
-                        icon="arrow-down-circle"
-                        label="Receivable"
-                        value={`₹${totals.receivable.toLocaleString("en-IN")}`}
-                        bgColor={colors.successBg}
-                        textColor={colors.successText}
-                        borderColor={colors.success + "40"}
+                        icon="account-group"
+                        label="Accounts"
+                        value={totals.count.toString()}
+                        bgColor={colors.chipAccountBg}
+                        textColor={colors.chipAccountText}
+                        borderColor={colors.primary + "30"}
                     />
-                )}
-                {totals.payable > 0 && (
-                    <SummaryChip
-                        icon="arrow-up-circle"
-                        label="Payable"
-                        value={`₹${totals.payable.toLocaleString("en-IN")}`}
-                        bgColor={colors.dangerBg}
-                        textColor={colors.dangerText}
-                        borderColor={colors.danger + "40"}
-                    />
-                )}
-                {totals.settled > 0 && (
-                    <SummaryChip
-                        icon="check-circle"
-                        label="Settled"
-                        value={totals.settled.toString()}
-                        bgColor={colors.settledBg}
-                        textColor={colors.settledText}
-                        borderColor={colors.border}
-                    />
-                )}
+                    {totals.receivable > 0 && (
+                        <SummaryChip
+                            icon="arrow-down-circle"
+                            label="Receivable"
+                            value={`₹${totals.receivable.toLocaleString("en-IN")}`}
+                            bgColor={colors.successBg}
+                            textColor={colors.successText}
+                            borderColor={colors.success + "40"}
+                        />
+                    )}
+                    {totals.payable > 0 && (
+                        <SummaryChip
+                            icon="arrow-up-circle"
+                            label="Payable"
+                            value={`₹${totals.payable.toLocaleString("en-IN")}`}
+                            bgColor={colors.dangerBg}
+                            textColor={colors.dangerText}
+                            borderColor={colors.danger + "40"}
+                        />
+                    )}
+                    {totals.settled > 0 && (
+                        <SummaryChip
+                            icon="check-circle"
+                            label="Settled"
+                            value={totals.settled.toString()}
+                            bgColor={colors.settledBg}
+                            textColor={colors.settledText}
+                            borderColor={colors.border}
+                        />
+                    )}
+                </ScrollView>
             </View>
 
-            {/* List */}
-            <ScrollView
-                contentContainerStyle={{ paddingVertical: 8, paddingBottom: 32 }}
-                showsVerticalScrollIndicator={false}
-            >
-                {users.map((user) => (
+            {/* List with 25-item incremental loading */}
+            <FlatList
+                data={visibleUsers}
+                keyExtractor={(user) => user.userId.toString()}
+                renderItem={({ item: user }) => (
                     <UserRow
-                        key={user.userId}
                         user={user}
                         onView={onView}
                         onEdit={onEdit}
                         onDelete={onDelete}
                     />
-                ))}
-            </ScrollView>
+                )}
+                contentContainerStyle={{ paddingVertical: 8, paddingBottom: 32 }}
+                showsVerticalScrollIndicator={false}
+                onEndReached={loadMore}
+                onEndReachedThreshold={0.5}
+                initialNumToRender={25}
+                maxToRenderPerBatch={25}
+                windowSize={5}
+            />
         </View>
     );
 };

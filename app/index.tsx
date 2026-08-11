@@ -7,9 +7,9 @@ import { HomeHeaderTitle } from "@/components/HeaderTitle";
 import { ThemeContext, useAppTheme } from "@/hooks/useAppTheme";
 import DatabaseService from "@/services/database.service";
 import { IUser } from "@/types/user.interface";
-import { useNavigation, useRouter } from "expo-router";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { Icon, Portal, Text } from "react-native-paper";
 
@@ -29,9 +29,15 @@ export default function Index() {
     const [selectedUser, setSelectedUser] = useState<IUser>();
     const [hideSettled, setHideSettled] = useState(false);
 
-    useEffect(() => {
-        refreshUserList();
-    }, []);
+    const refreshUserList = useCallback(() => {
+        setUsers(DatabaseService.getUsers(db));
+    }, [db]);
+
+    useFocusEffect(
+        useCallback(() => {
+            refreshUserList();
+        }, [refreshUserList])
+    );
 
     useLayoutEffect(() => {
         const headerRight = () => (
@@ -51,10 +57,6 @@ export default function Index() {
             headerTintColor: colors.headerText,
         });
     }, [appTheme]);
-
-    function refreshUserList(): void {
-        setUsers(DatabaseService.getUsers(db));
-    }
 
     function viewUserHandler(user: IUser): void {
         router.push({ pathname: "/details", params: { userId: user.userId } });
@@ -83,7 +85,7 @@ export default function Index() {
         setIsEdit(true);
     }
 
-    function userHandler(id: number, name: string): void {
+    function userHandler(id: number | undefined, name: string): void {
         if (name && !id) {
             DatabaseService.createUser(db, name);
         } else if (id && name) {
@@ -118,7 +120,7 @@ export default function Index() {
                         <ConfirmationModal
                             message="Are you sure you want to delete this account? All associated transactions will also be removed."
                             setIsVisible={setIsVisible}
-                            onSubmit={() => userHandler(selectedUser!.userId, "")}
+                            onSubmit={() => userHandler(selectedUser?.userId, "")}
                             onCancel={() => {}}
                             isVisible={isVisible}
                         />

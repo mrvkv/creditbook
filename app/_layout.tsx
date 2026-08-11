@@ -31,7 +31,7 @@ export default function RootLayout() {
 
     return (
         <SQLiteProvider databaseName="creditbook" onInit={DatabaseService.migrate}>
-            <StatusBar style={isDark ? "light" : "light"} />
+            <StatusBar style={isDark ? "light" : "dark"} />
             <ThemeContext.Provider value={appTheme}>
                 <PaperProvider theme={paperTheme}>
                     <Stack

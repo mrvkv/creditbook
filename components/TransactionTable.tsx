@@ -3,20 +3,34 @@ import { TransactionType } from "@/enums/transaction.enum";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { ITransaction } from "@/types/transaction.interface";
 import * as React from "react";
-import { useMemo } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, Pressable, ScrollView, View } from "react-native";
 import { Icon, Text } from "react-native-paper";
 
-function formatDate(date: string): string {
-    const monthMap: Record<string, string> = {
-        "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr",
-        "05": "May", "06": "Jun", "07": "Jul", "08": "Aug",
-        "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec",
-    };
-    const d = new Date(date);
-    const parts = d.toLocaleDateString("en-GB").replace(/\//g, " ").split(" ");
-    return `${parts[0]} ${monthMap[parts[1]]} ${parts[2]}`;
+function formatDate(dateStr: string): string {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
 }
+
+export type TabType = "all" | "credit" | "debit";
+export type SortOption = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
+
+export interface ITransactionFilter {
+    tab: TabType;
+    sortBy: SortOption;
+}
+
+const SORT_LABELS: Record<SortOption, { label: string; icon: string }> = {
+    date_desc: { label: "Newest", icon: "sort-calendar-descending" },
+    date_asc: { label: "Oldest", icon: "sort-calendar-ascending" },
+    amount_desc: { label: "High Amount", icon: "sort-numeric-descending" },
+    amount_asc: { label: "Low Amount", icon: "sort-numeric-ascending" },
+};
 
 // ─── Transaction row card ──────────────────────────────────────────────────
 const TransactionRow = ({
@@ -167,12 +181,72 @@ const TransactionTable = ({
 }) => {
     const { colors } = useAppTheme();
 
+    // Single unified filter object
+    const [filter, setFilter] = useState<ITransactionFilter>({
+        tab: "all",
+        sortBy: "date_desc",
+    });
+
+    const [visibleLimit, setVisibleLimit] = useState(25);
+
     const summary = useMemo(() => {
-        const given = transactions.filter((t) => t.type === TransactionType.Debit).reduce((s, t) => s + t.amount, 0);
-        const taken = transactions.filter((t) => t.type === TransactionType.Credit).reduce((s, t) => s + t.amount, 0);
+        const given = (transactions || []).filter((t) => t.type === TransactionType.Debit).reduce((s, t) => s + t.amount, 0);
+        const taken = (transactions || []).filter((t) => t.type === TransactionType.Credit).reduce((s, t) => s + t.amount, 0);
         const net = taken - given;
         return { given, taken, net };
     }, [transactions]);
+
+    // Apply filtering and sorting using the filter object
+    const filteredAndSortedTransactions = useMemo(() => {
+        let list = [...(transactions || [])];
+
+        // 1. Tab filter
+        if (filter.tab === "credit") {
+            list = list.filter((t) => t.type === TransactionType.Credit);
+        } else if (filter.tab === "debit") {
+            list = list.filter((t) => t.type === TransactionType.Debit);
+        }
+
+        // 2. Sort order
+        list.sort((a, b) => {
+            if (filter.sortBy === "date_desc") {
+                return new Date(b.date).getTime() - new Date(a.date).getTime();
+            } else if (filter.sortBy === "date_asc") {
+                return new Date(a.date).getTime() - new Date(b.date).getTime();
+            } else if (filter.sortBy === "amount_desc") {
+                return b.amount - a.amount;
+            } else if (filter.sortBy === "amount_asc") {
+                return a.amount - b.amount;
+            }
+            return 0;
+        });
+
+        return list;
+    }, [transactions, filter]);
+
+    // Paginate 25 items at a time
+    const visibleTransactions = useMemo(() => {
+        return filteredAndSortedTransactions.slice(0, visibleLimit);
+    }, [filteredAndSortedTransactions, visibleLimit]);
+
+    const loadMore = () => {
+        if (visibleLimit < filteredAndSortedTransactions.length) {
+            setVisibleLimit((prev) => prev + 25);
+        }
+    };
+
+    const handleTabChange = (tab: TabType) => {
+        setFilter((prev) => ({ ...prev, tab }));
+        setVisibleLimit(25);
+    };
+
+    const cycleSort = () => {
+        const sortOptions: SortOption[] = ["date_desc", "date_asc", "amount_desc", "amount_asc"];
+        const currentIndex = sortOptions.indexOf(filter.sortBy);
+        const nextSort = sortOptions[(currentIndex + 1) % sortOptions.length];
+        setFilter((prev) => ({ ...prev, sortBy: nextSort }));
+        setVisibleLimit(25);
+    };
 
     if (!transactions || transactions.length === 0) {
         return (
@@ -223,15 +297,112 @@ const TransactionTable = ({
                 </View>
             </View>
 
-            {/* List */}
-            <ScrollView
-                contentContainerStyle={{ paddingVertical: 8, paddingBottom: 32 }}
-                showsVerticalScrollIndicator={false}
+            {/* Filter & Sort Bar */}
+            <View
+                style={{
+                    backgroundColor: colors.surfaceVariant,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                }}
             >
-                {transactions.map((t) => (
-                    <TransactionRow key={t.transactionId} transaction={t} onDelete={onDelete} />
-                ))}
-            </ScrollView>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        gap: 12,
+                        minWidth: "100%",
+                    }}
+                >
+                    {/* 3 Tabs: All, Taken (Credit), Given (Debit) */}
+                    <View style={{ flexDirection: "row", gap: 6 }}>
+                        {(["all", "credit", "debit"] as TabType[]).map((tabKey) => {
+                            const active = filter.tab === tabKey;
+                            const label = tabKey === "all" ? "All" : tabKey === "credit" ? "Taken" : "Given";
+                            const activeColor =
+                                tabKey === "credit" ? colors.successText : tabKey === "debit" ? colors.dangerText : colors.primary;
+                            const activeBg =
+                                tabKey === "credit" ? colors.successBg : tabKey === "debit" ? colors.dangerBg : colors.chipAccountBg;
+                            const activeBorder =
+                                tabKey === "credit" ? colors.success : tabKey === "debit" ? colors.danger : colors.primary;
+
+                            return (
+                                <Pressable
+                                    key={tabKey}
+                                    onPress={() => handleTabChange(tabKey)}
+                                    style={{
+                                        paddingHorizontal: 12,
+                                        paddingVertical: 6,
+                                        borderRadius: 16,
+                                        backgroundColor: active ? activeBg : colors.surface,
+                                        borderWidth: 1,
+                                        borderColor: active ? activeBorder : colors.border,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: active ? "700" : "500",
+                                            color: active ? activeColor : colors.onSurfaceVariant,
+                                        }}
+                                    >
+                                        {label}
+                                    </Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+
+                    {/* Sort Toggle Button */}
+                    <Pressable
+                        onPress={cycleSort}
+                        style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 4,
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: 16,
+                            backgroundColor: colors.surface,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                        }}
+                    >
+                        <Icon source={SORT_LABELS[filter.sortBy].icon} size={14} color={colors.primary} />
+                        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.onSurface }}>
+                            {SORT_LABELS[filter.sortBy].label}
+                        </Text>
+                    </Pressable>
+                </ScrollView>
+            </View>
+
+            {/* List with 25-item incremental loading */}
+            {filteredAndSortedTransactions.length === 0 ? (
+                <EmptyState
+                    icon="filter-remove-outline"
+                    title="No matching transactions"
+                    subtitle="Try switching tabs or changing sort options"
+                />
+            ) : (
+                <FlatList
+                    data={visibleTransactions}
+                    keyExtractor={(t) => t.transactionId.toString()}
+                    renderItem={({ item: t }) => (
+                        <TransactionRow transaction={t} onDelete={onDelete} />
+                    )}
+                    contentContainerStyle={{ paddingVertical: 8, paddingBottom: 32 }}
+                    showsVerticalScrollIndicator={false}
+                    onEndReached={loadMore}
+                    onEndReachedThreshold={0.5}
+                    initialNumToRender={25}
+                    maxToRenderPerBatch={25}
+                    windowSize={5}
+                />
+            )}
         </View>
     );
 };

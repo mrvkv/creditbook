@@ -96,8 +96,10 @@ export default function Details() {
     }
 
     function deleteTransaction(): void {
-        DatabaseService.deleteTransaction(db, selectedTransaction!);
-        refreshTransactionList();
+        if (selectedTransaction) {
+            DatabaseService.deleteTransaction(db, selectedTransaction);
+            refreshTransactionList();
+        }
     }
 
     return (

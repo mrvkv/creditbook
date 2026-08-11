@@ -2,8 +2,8 @@ import { TransactionType } from "@/enums/transaction.enum";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import DatabaseService from "@/services/database.service";
 import { useSQLiteContext } from "expo-sqlite";
-import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 
 interface ITransactionModalProps {
@@ -18,8 +18,16 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
     const [type, setType] = useState(TransactionType.Debit);
     const [amount, setAmount] = useState("");
     const [remark, setRemark] = useState("");
+    const amountInputRef = useRef<any>(null);
 
     const isDebit = type === TransactionType.Debit;
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            amountInputRef.current?.focus();
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
 
     function handleSubmit() {
         if (!amount || parseFloat(amount) <= 0) return;
@@ -32,7 +40,7 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
     }
 
     return (
-        <View>
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 12 }}>
             {/* Header */}
             <View
                 style={{
@@ -139,6 +147,8 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
 
             {/* Amount */}
             <TextInput
+                ref={amountInputRef}
+                autoFocus
                 mode="outlined"
                 style={{
                     marginHorizontal: 20,
@@ -189,6 +199,6 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                     Save
                 </Button>
             </View>
-        </View>
+        </ScrollView>
     );
 }

@@ -25,9 +25,14 @@ export default class DatabaseService {
     }
 
     public static createUser(db: SQLite.SQLiteDatabase, userName: string): void {
-        const { userId: counter } = db.getFirstSync("SELECT userId from counters") as { userId: number };
-        db.runSync("INSERT INTO users (userId, name, balance, lastUpdated) VALUES (?, ?, ?, ?)", counter + 1, userName, 0, "");
-        db.runSync("UPDATE counters SET userId = ?", counter + 1);
+        const row = db.getFirstSync("SELECT userId from counters") as { userId: number } | null;
+        const counter = row?.userId ?? 0;
+        db.runSync("INSERT INTO users (userId, name, balance, lastUpdated) VALUES (?, ?, ?, ?)", counter + 1, userName, 0, new Date().toISOString());
+        if (!row) {
+            db.runSync("INSERT INTO counters (userId, transactionId) VALUES (?, ?)", counter + 1, 0);
+        } else {
+            db.runSync("UPDATE counters SET userId = ?", counter + 1);
+        }
     }
 
     public static updateUser(db: SQLite.SQLiteDatabase, userId: number, userName: string): void {
@@ -44,34 +49,43 @@ export default class DatabaseService {
     }
 
     public static createTransaction(db: SQLite.SQLiteDatabase, userId: number, amount: number, type: string, remark: string): void {
-        const { transactionId: counter } = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number };
+        const row = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number } | null;
+        const counter = row?.transactionId ?? 0;
         db.runSync(
             "INSERT INTO transactions (transactionId, userId, amount, type, date, remark) VALUES (?, ?, ?, ?, ?, ?)",
-            counter,
+            counter + 1,
             userId,
             amount,
             type,
             new Date().toISOString(),
             remark
         );
-        let { balance } = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", userId) as IUser;
+        let userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", userId) as { balance: number } | null;
+        let balance = userRow?.balance ?? 0;
         if (type === TransactionType.Debit) {
             balance -= amount;
         } else {
             balance += amount;
         }
         db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, new Date().toISOString(), userId);
-        db.runSync("UPDATE counters SET transactionId = ?", counter + 1);
+        if (!row) {
+            db.runSync("INSERT INTO counters (userId, transactionId) VALUES (?, ?)", 0, counter + 1);
+        } else {
+            db.runSync("UPDATE counters SET transactionId = ?", counter + 1);
+        }
     }
 
     public static deleteTransaction(db: SQLite.SQLiteDatabase, { transactionId, userId, type, amount }: ITransaction): void {
         db.runSync("DELETE FROM transactions where transactionId = ?", transactionId);
-        let { balance } = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", userId) as IUser;
-        if (type === TransactionType.Debit) {
-            balance = balance + amount;
-        } else {
-            balance = balance - amount;
+        let userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", userId) as { balance: number } | null;
+        if (userRow) {
+            let balance = userRow.balance;
+            if (type === TransactionType.Debit) {
+                balance = balance + amount;
+            } else {
+                balance = balance - amount;
+            }
+            db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, new Date().toISOString(), userId);
         }
-        db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, new Date().toISOString(), userId);
     }
 }

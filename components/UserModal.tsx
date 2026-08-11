@@ -1,10 +1,10 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { useState } from "react";
-import { View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ScrollView, View } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 
 interface IUserModalProps {
-    readonly onSubmit: (userId: number, userName: string) => void;
+    readonly onSubmit: (userId: number | undefined, userName: string) => void;
     readonly setVisibility: (isVisible: boolean) => void;
     readonly userName?: string;
     readonly userId?: number;
@@ -13,12 +13,20 @@ interface IUserModalProps {
 export default function UserModal({ onSubmit, setVisibility, userName, userId }: IUserModalProps) {
     const { colors } = useAppTheme();
     const [name, setName] = useState(userName || "");
+    const inputRef = useRef<any>(null);
     const isEdit = !!userName;
     const modalTitle = isEdit ? "Edit Account" : "Add Account";
     const modalSubtitle = isEdit ? "Update the account name below." : "Enter a name for the new account.";
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            inputRef.current?.focus();
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
+
     return (
-        <View>
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 12 }}>
             {/* Header */}
             <View
                 style={{
@@ -50,6 +58,8 @@ export default function UserModal({ onSubmit, setVisibility, userName, userId }:
 
             {/* Input */}
             <TextInput
+                ref={inputRef}
+                autoFocus
                 mode="outlined"
                 style={{
                     marginHorizontal: 20,
@@ -78,7 +88,7 @@ export default function UserModal({ onSubmit, setVisibility, userName, userId }:
                     style={{ flex: 1, borderRadius: 12 }}
                     onPress={() => {
                         if (name.trim()) {
-                            onSubmit(userId!, name.trim());
+                            onSubmit(userId, name.trim());
                             setVisibility(false);
                         }
                     }}
@@ -86,6 +96,6 @@ export default function UserModal({ onSubmit, setVisibility, userName, userId }:
                     {isEdit ? "Update" : "Add Account"}
                 </Button>
             </View>
-        </View>
+        </ScrollView>
     );
 }

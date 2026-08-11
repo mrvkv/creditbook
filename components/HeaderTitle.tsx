@@ -52,10 +52,7 @@ export function HomeHeaderTitle() {
                         lineHeight: 20,
                     }}
                 >
-                    Credit
-                    <Text style={{ color: isDark ? "#A78BFA" : "rgba(255,255,255,0.85)", fontWeight: "800" }}>
-                        {" "}Book
-                    </Text>
+                    Credit<Text style={{ color: isDark ? "#A78BFA" : "rgba(255,255,255,0.85)", fontWeight: "800" }}>Book</Text>
                 </Text>
                 <Text style={{ color: subColor, fontSize: 10, letterSpacing: 0.5, lineHeight: 12 }}>
                     Personal Ledger
@@ -96,25 +93,27 @@ export function TransactionsHeaderTitle({ userName }: { userName?: string }) {
             </View>
 
             {/* Title + name left-aligned */}
-            <View style={{ alignItems: "flex-start" }}>
+            <View style={{ alignItems: "flex-start", flexShrink: 1 }}>
                 <Text
+                    numberOfLines={1}
                     style={{
                         color: textColor,
                         fontSize: 18,
                         fontWeight: "800",
                         letterSpacing: 0.2,
-                        lineHeight: 20,
+                        lineHeight: 22,
                     }}
                 >
                     Transactions
                 </Text>
                 {userName ? (
                     <Text
+                        numberOfLines={1}
                         style={{
                             color: subColor,
                             fontSize: 10,
                             letterSpacing: 0.5,
-                            lineHeight: 12,
+                            lineHeight: 14,
                         }}
                     >
                         {userName}
