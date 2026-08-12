@@ -13,7 +13,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { BackHandler, View } from "react-native";
-import { Portal } from "react-native-paper";
+import { Portal, Text } from "react-native-paper";
 
 export default function Details() {
     const db = useSQLiteContext();
@@ -28,6 +28,7 @@ export default function Details() {
     const [isVisible, setIsVisible] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
     const [isDelete, setIsDelete] = useState(false);
+    const [isSettle, setIsSettle] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<ITransaction>();
 
     // Safe back navigation — works whether or not there is a stack entry above
@@ -88,12 +89,14 @@ export default function Details() {
     function addTransactionHandler(): void {
         setIsEdit(false);
         setIsDelete(false);
+        setIsSettle(false);
         setSelectedTransaction(undefined);
         setIsVisible(true);
     }
 
     function editTransactionHandler(transaction: ITransaction): void {
         setIsDelete(false);
+        setIsSettle(false);
         setIsEdit(true);
         setSelectedTransaction(transaction);
         setIsVisible(true);
@@ -101,8 +104,16 @@ export default function Details() {
 
     function deleteTransactionHandler(transaction: ITransaction): void {
         setIsEdit(false);
+        setIsSettle(false);
         setIsDelete(true);
         setSelectedTransaction(transaction);
+        setIsVisible(true);
+    }
+
+    function settleAccountHandler(): void {
+        setIsEdit(false);
+        setIsDelete(false);
+        setIsSettle(true);
         setIsVisible(true);
     }
 
@@ -113,11 +124,16 @@ export default function Details() {
         }
     }
 
+    function settleAccount(): void {
+        DatabaseService.settleAccount(db, parseInt(userId));
+        refreshTransactionList();
+    }
+
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
             <Portal>
                 <ThemeContext.Provider value={appTheme}>
-                    {!isDelete && (
+                    {!isDelete && !isSettle && (
                         <Modal isVisible={isVisible} setVisibility={setIsVisible}>
                             <TransactionModal
                                 userId={userId}
@@ -136,12 +152,32 @@ export default function Details() {
                             isVisible={isVisible}
                         />
                     )}
+                    {isSettle && (
+                        <ConfirmationModal
+                            title="Settle Up Account"
+                            submitLabel="Settle Up"
+                            icon="check-all"
+                            variant="success"
+                            message={
+                                <Text style={{ color: colors.onSurfaceVariant, textAlign: "center", lineHeight: 20 }}>
+                                    Are you sure you want to mark{" "}
+                                    <Text style={{ fontWeight: "800", color: colors.onSurface }}>{userName}</Text>'s account as settled? All open entries will be moved to Settled History and{" "}
+                                    <Text style={{ fontWeight: "800", color: colors.successText }}>net balance will reset to ₹0</Text>.
+                                </Text>
+                            }
+                            setIsVisible={setIsVisible}
+                            onSubmit={() => settleAccount()}
+                            onCancel={() => {}}
+                            isVisible={isVisible}
+                        />
+                    )}
                 </ThemeContext.Provider>
             </Portal>
             <TransactionTable
                 transactions={transactions}
                 onEdit={editTransactionHandler}
                 onDelete={deleteTransactionHandler}
+                onSettleAccount={settleAccountHandler}
             />
         </View>
     );

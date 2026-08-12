@@ -4,16 +4,54 @@ import { Button, Icon, Text } from "react-native-paper";
 
 type ConfirmationModalProps = {
     readonly onSubmit: () => void;
-    readonly onCancel: () => void;
+    readonly onCancel?: () => void;
     readonly setIsVisible: (visible: boolean) => void;
     readonly isVisible: boolean;
-    readonly message: string;
+    readonly message: string | React.ReactNode;
+    readonly title?: string;
+    readonly submitLabel?: string;
+    readonly icon?: string;
+    readonly variant?: "danger" | "success" | "primary";
 };
 
-export default function ConfirmationModal({ onSubmit, onCancel, setIsVisible, isVisible, message }: ConfirmationModalProps) {
+export default function ConfirmationModal({
+    onSubmit,
+    onCancel,
+    setIsVisible,
+    isVisible,
+    message,
+    title,
+    submitLabel,
+    icon,
+    variant = "danger",
+}: ConfirmationModalProps) {
     const { colors } = useAppTheme();
 
     if (!isVisible) return null;
+
+    let iconBg = colors.danger;
+    let defaultIcon = "alert";
+    let defaultTitle = "Confirm Delete";
+    let defaultSubmitLabel = "Delete";
+    let btnColor = colors.danger;
+
+    if (variant === "success") {
+        iconBg = colors.success;
+        defaultIcon = "check-circle-outline";
+        defaultTitle = "Confirm Settlement";
+        defaultSubmitLabel = "Settle Up";
+        btnColor = colors.success;
+    } else if (variant === "primary") {
+        iconBg = colors.primary;
+        defaultIcon = "information-outline";
+        defaultTitle = "Confirm Action";
+        defaultSubmitLabel = "Confirm";
+        btnColor = colors.primary;
+    }
+
+    const modalTitle = title || defaultTitle;
+    const modalIcon = icon || defaultIcon;
+    const modalSubmitLabel = submitLabel || defaultSubmitLabel;
 
     return (
         <View
@@ -38,9 +76,14 @@ export default function ConfirmationModal({ onSubmit, onCancel, setIsVisible, is
                     overflow: "hidden",
                     borderWidth: 1,
                     borderColor: colors.border,
+                    elevation: 6,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 10,
                 }}
             >
-                {/* Warning icon header */}
+                {/* Icon header */}
                 <View
                     style={{
                         alignItems: "center",
@@ -56,37 +99,39 @@ export default function ConfirmationModal({ onSubmit, onCancel, setIsVisible, is
                             width: 56,
                             height: 56,
                             borderRadius: 28,
-                            backgroundColor: colors.dangerBg,
+                            backgroundColor: iconBg,
                             alignItems: "center",
                             justifyContent: "center",
                             marginBottom: 14,
-                            borderWidth: 1.5,
-                            borderColor: colors.danger,
                         }}
                     >
-                        <Icon source="alert" size={28} color={colors.dangerText} />
+                        <Icon source={modalIcon} size={28} color="#FFFFFF" />
                     </View>
                     <Text
                         variant="titleMedium"
                         style={{
                             color: colors.onSurface,
-                            fontWeight: "700",
+                            fontWeight: "800",
                             textAlign: "center",
                             marginBottom: 6,
                         }}
                     >
-                        Confirm Delete
+                        {modalTitle}
                     </Text>
-                    <Text
-                        variant="bodyMedium"
-                        style={{
-                            color: colors.onSurfaceVariant,
-                            textAlign: "center",
-                            lineHeight: 20,
-                        }}
-                    >
-                        {message}
-                    </Text>
+                    {typeof message === "string" ? (
+                        <Text
+                            variant="bodyMedium"
+                            style={{
+                                color: colors.onSurfaceVariant,
+                                textAlign: "center",
+                                lineHeight: 20,
+                            }}
+                        >
+                            {message}
+                        </Text>
+                    ) : (
+                        <View style={{ alignItems: "center" }}>{message}</View>
+                    )}
                 </View>
 
                 {/* Actions */}
@@ -102,11 +147,11 @@ export default function ConfirmationModal({ onSubmit, onCancel, setIsVisible, is
                         style={{
                             flex: 1,
                             borderRadius: 12,
-                            borderColor: colors.border,
+                            borderColor: colors.borderStrong || colors.border,
                         }}
-                        labelStyle={{ color: colors.onSurfaceVariant }}
+                        labelStyle={{ color: colors.onSurfaceVariant, fontWeight: "700" }}
                         onPress={() => {
-                            onCancel();
+                            if (onCancel) onCancel();
                             setIsVisible(false);
                         }}
                     >
@@ -114,14 +159,15 @@ export default function ConfirmationModal({ onSubmit, onCancel, setIsVisible, is
                     </Button>
                     <Button
                         mode="contained"
-                        buttonColor={colors.danger}
+                        buttonColor={btnColor}
                         style={{ flex: 1, borderRadius: 12 }}
+                        labelStyle={{ color: "#FFFFFF", fontWeight: "700" }}
                         onPress={() => {
                             onSubmit();
                             setIsVisible(false);
                         }}
                     >
-                        Delete
+                        {modalSubmitLabel}
                     </Button>
                 </View>
             </View>

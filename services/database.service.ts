@@ -6,6 +6,22 @@ import * as SQLite from "expo-sqlite";
 import QueryService from "./query.service";
 
 export default class DatabaseService {
+    private static isSettledChecked = false;
+
+    public static ensureIsSettledColumn(db: SQLite.SQLiteDatabase): void {
+        if (DatabaseService.isSettledChecked) return;
+        try {
+            const tableInfo = db.getAllSync("PRAGMA table_info(transactions)") as { name: string }[];
+            const exists = tableInfo.some((col) => col.name === "isSettled");
+            if (!exists) {
+                db.execSync("ALTER TABLE transactions ADD COLUMN isSettled INTEGER DEFAULT 0;");
+            }
+            DatabaseService.isSettledChecked = true;
+        } catch (error) {
+            console.warn("Migration warning for isSettled column:", error);
+        }
+    }
+
     public static async migrate(db: SQLite.SQLiteDatabase): Promise<void> {
         let isChanged = false;
         let { user_version: currentDbVersion } = db.getFirstSync("PRAGMA user_version") as { user_version: number };
@@ -22,6 +38,8 @@ export default class DatabaseService {
             currentDbVersion = 2;
             isChanged = true;
         }
+
+        DatabaseService.ensureIsSettledColumn(db);
 
         isChanged && db.execSync(`PRAGMA user_version = ${currentDbVersion}`);
         DatabaseService.seedSampleData(db);
@@ -175,14 +193,16 @@ export default class DatabaseService {
     }
 
     public static getTransactions(db: SQLite.SQLiteDatabase, userId: number): ITransaction[] {
+        DatabaseService.ensureIsSettledColumn(db);
         return db.getAllSync("SELECT * FROM transactions where userId = ?", userId);
     }
 
     public static createTransaction(db: SQLite.SQLiteDatabase, userId: number, amount: number, type: string, remark: string): void {
+        DatabaseService.ensureIsSettledColumn(db);
         const row = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number } | null;
         const counter = row?.transactionId ?? 0;
         db.runSync(
-            "INSERT INTO transactions (transactionId, userId, amount, type, date, remark) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled) VALUES (?, ?, ?, ?, ?, ?, 0)",
             counter + 1,
             userId,
             amount,
@@ -206,6 +226,7 @@ export default class DatabaseService {
     }
 
     public static deleteTransaction(db: SQLite.SQLiteDatabase, { transactionId, userId, type, amount }: ITransaction): void {
+        DatabaseService.ensureIsSettledColumn(db);
         db.runSync("DELETE FROM transactions where transactionId = ?", transactionId);
         let userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", userId) as { balance: number } | null;
         if (userRow) {
@@ -224,6 +245,7 @@ export default class DatabaseService {
         oldTransaction: ITransaction,
         newTransaction: { amount: number; type: string; remark: string }
     ): void {
+        DatabaseService.ensureIsSettledColumn(db);
         let userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", oldTransaction.userId) as { balance: number } | null;
         if (userRow) {
             let balance = userRow.balance;
@@ -246,5 +268,37 @@ export default class DatabaseService {
             );
             db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, new Date().toISOString(), oldTransaction.userId);
         }
+    }
+
+    public static settleAccount(db: SQLite.SQLiteDatabase, userId: number): void {
+        DatabaseService.ensureIsSettledColumn(db);
+        db.withTransactionSync(() => {
+            db.runSync(
+                "UPDATE transactions SET isSettled = 1 WHERE userId = ? AND (isSettled = 0 OR isSettled IS NULL)",
+                userId
+            );
+            db.runSync(
+                "UPDATE users SET balance = 0, lastUpdated = ? WHERE userId = ?",
+                new Date().toISOString(),
+                userId
+            );
+        });
+    }
+
+    public static settleMultipleAccounts(db: SQLite.SQLiteDatabase, userIds: number[]): void {
+        if (!userIds || userIds.length === 0) return;
+        DatabaseService.ensureIsSettledColumn(db);
+        db.withTransactionSync(() => {
+            const placeholders = userIds.map(() => "?").join(",");
+            db.runSync(
+                `UPDATE transactions SET isSettled = 1 WHERE userId IN (${placeholders}) AND (isSettled = 0 OR isSettled IS NULL)`,
+                ...userIds
+            );
+            db.runSync(
+                `UPDATE users SET balance = 0, lastUpdated = ? WHERE userId IN (${placeholders})`,
+                new Date().toISOString(),
+                ...userIds
+            );
+        });
     }
 }

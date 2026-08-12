@@ -62,6 +62,10 @@ export default {
             type: DbDataType.Text,
             constraints: [`${DbConstraint.Default} ''`] as unknown as DbConstraint[],
         },
+        isSettled: {
+            type: DbDataType.Int,
+            constraints: [`${DbConstraint.Default} 0`] as unknown as DbConstraint[],
+        },
     },
     users: {
         userId: {

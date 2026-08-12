@@ -23,6 +23,7 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
     const amountInputRef = useRef<any>(null);
 
     const isDebit = type === TransactionType.Debit;
+    const isFormValid = !!amount && parseFloat(amount) > 0;
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -32,7 +33,7 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
     }, []);
 
     function handleSubmit() {
-        if (!amount || parseFloat(amount) <= 0) return;
+        if (!isFormValid) return;
         if (transaction) {
             DatabaseService.updateTransaction(db, transaction, {
                 amount: parseFloat(amount),
@@ -64,11 +65,11 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
             >
                 <Text
                     variant="titleLarge"
-                    style={{ color: colors.onSurface, fontWeight: "700", marginBottom: 4 }}
+                    style={{ color: colors.onSurface, fontWeight: "800", marginBottom: 4 }}
                 >
                     {transaction ? "Edit Transaction" : "Add Transaction"}
                 </Text>
-                <Text variant="bodySmall" style={{ color: colors.onSurfaceMuted }}>
+                <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant }}>
                     {transaction ? "Modify credit or debit entry details." : "Record a credit or debit entry."}
                 </Text>
             </View>
@@ -83,6 +84,7 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                         letterSpacing: 0.5,
                         textTransform: "uppercase",
                         fontSize: 11,
+                        fontWeight: "700",
                     }}
                 >
                     Transaction Type
@@ -94,10 +96,10 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                         borderRadius: 12,
                         padding: 4,
                         borderWidth: 1,
-                        borderColor: colors.border,
+                        borderColor: colors.borderStrong || colors.border,
                     }}
                 >
-                    {/* Given (Debit) */}
+                    {/* Given (Debit - Red) */}
                     <Pressable
                         style={{
                             flex: 1,
@@ -108,16 +110,14 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                             justifyContent: "center",
                             flexDirection: "row",
                             gap: 6,
-                            backgroundColor: isDebit ? colors.dangerBg : "transparent",
-                            borderWidth: isDebit ? 1 : 0,
-                            borderColor: isDebit ? colors.danger : "transparent",
+                            backgroundColor: isDebit ? colors.danger : "transparent",
                         }}
                         onPress={() => setType(TransactionType.Debit)}
                     >
                         <Text
                             style={{
-                                color: isDebit ? colors.dangerText : colors.onSurfaceMuted,
-                                fontWeight: isDebit ? "700" : "400",
+                                color: isDebit ? "#FFFFFF" : colors.onSurfaceVariant,
+                                fontWeight: isDebit ? "800" : "500",
                                 fontSize: 14,
                             }}
                         >
@@ -125,7 +125,7 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                         </Text>
                     </Pressable>
 
-                    {/* Taken (Credit) */}
+                    {/* Taken (Credit - Green) */}
                     <Pressable
                         style={{
                             flex: 1,
@@ -136,16 +136,14 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                             justifyContent: "center",
                             flexDirection: "row",
                             gap: 6,
-                            backgroundColor: !isDebit ? colors.successBg : "transparent",
-                            borderWidth: !isDebit ? 1 : 0,
-                            borderColor: !isDebit ? colors.success : "transparent",
+                            backgroundColor: !isDebit ? colors.success : "transparent",
                         }}
                         onPress={() => setType(TransactionType.Credit)}
                     >
                         <Text
                             style={{
-                                color: !isDebit ? colors.successText : colors.onSurfaceMuted,
-                                fontWeight: !isDebit ? "700" : "400",
+                                color: !isDebit ? "#FFFFFF" : colors.onSurfaceVariant,
+                                fontWeight: !isDebit ? "800" : "500",
                                 fontSize: 14,
                             }}
                         >
@@ -160,6 +158,7 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                 ref={amountInputRef}
                 autoFocus
                 mode="outlined"
+                textColor={colors.onSurface}
                 style={{
                     marginHorizontal: 20,
                     marginBottom: 14,
@@ -171,13 +170,14 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                     if (/^(\d*)\.?(\d){0,2}$/.exec(text)) setAmount(text);
                 }}
                 keyboardType="numeric"
-                left={<TextInput.Affix text="₹" />}
-                outlineStyle={{ borderRadius: 12 }}
+                left={<TextInput.Affix text="₹" textStyle={{ color: colors.onSurfaceVariant }} />}
+                outlineStyle={{ borderRadius: 12, borderColor: colors.borderStrong || colors.border }}
             />
 
             {/* Remark */}
             <TextInput
                 mode="outlined"
+                textColor={colors.onSurface}
                 style={{
                     marginHorizontal: 20,
                     marginBottom: 20,
@@ -186,25 +186,30 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                 label="Remark (optional)"
                 value={remark}
                 onChangeText={(text) => setRemark(text)}
-                left={<TextInput.Icon icon="text" />}
-                outlineStyle={{ borderRadius: 12 }}
+                left={<TextInput.Icon icon="text" color={colors.onSurfaceVariant} />}
+                outlineStyle={{ borderRadius: 12, borderColor: colors.borderStrong || colors.border }}
             />
 
             {/* Actions */}
             <View style={{ flexDirection: "row", paddingHorizontal: 20, gap: 10, marginBottom: 8 }}>
                 <Button
                     mode="outlined"
-                    style={{ flex: 1, borderRadius: 12, borderColor: colors.border }}
-                    labelStyle={{ color: colors.onSurfaceVariant }}
+                    style={{ flex: 1, borderRadius: 12, borderColor: colors.borderStrong || colors.border }}
+                    labelStyle={{ color: colors.onSurfaceVariant, fontWeight: "700" }}
                     onPress={() => setVisibility(false)}
                 >
                     Cancel
                 </Button>
                 <Button
                     mode="contained"
+                    buttonColor={isFormValid ? (isDebit ? colors.danger : colors.success) : undefined}
+                    disabled={!isFormValid}
                     style={{ flex: 1, borderRadius: 12 }}
+                    labelStyle={{
+                        color: isFormValid ? "#FFFFFF" : colors.onSurfaceMuted,
+                        fontWeight: "700",
+                    }}
                     onPress={handleSubmit}
-                    disabled={!amount || parseFloat(amount) <= 0}
                 >
                     Save
                 </Button>

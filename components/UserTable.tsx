@@ -59,11 +59,19 @@ const UserRow = ({
     onView,
     onEdit,
     onDelete,
+    onSettle,
+    isSelectMode,
+    isSelected,
+    onToggleSelect,
 }: {
     user: IUser;
     onView: (u: IUser) => void;
     onEdit: (u: IUser) => void;
     onDelete: (u: IUser) => void;
+    onSettle?: (u: IUser) => void;
+    isSelectMode?: boolean;
+    isSelected?: boolean;
+    onToggleSelect?: (userId: number) => void;
 }) => {
     const { colors, isDark } = useAppTheme();
     const isSettled = user.balance === 0;
@@ -88,7 +96,7 @@ const UserRow = ({
 
     return (
         <Pressable
-            onPress={() => onView(user)}
+            onPress={() => (isSelectMode && !isSettled ? onToggleSelect?.(user.userId) : onView(user))}
             style={({ pressed }) => ({
                 flexDirection: "row",
                 alignItems: "center",
@@ -97,8 +105,8 @@ const UserRow = ({
                 marginVertical: 5,
                 borderRadius: 14,
                 padding: 14,
-                borderWidth: 1,
-                borderColor: colors.border,
+                borderWidth: isSelected ? 2 : 1,
+                borderColor: isSelected ? colors.success : colors.border,
                 shadowColor: isDark ? "#000" : "#6366F1",
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: isDark ? 0.25 : 0.07,
@@ -106,6 +114,26 @@ const UserRow = ({
                 elevation: 2,
             })}
         >
+            {/* Multi-select Checkbox */}
+            {isSelectMode && !isSettled && (
+                <Pressable
+                    onPress={() => onToggleSelect?.(user.userId)}
+                    style={{
+                        marginRight: 10,
+                        width: 22,
+                        height: 22,
+                        borderRadius: 6,
+                        borderWidth: 2,
+                        borderColor: isSelected ? colors.success : colors.border,
+                        backgroundColor: isSelected ? colors.success : "transparent",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    }}
+                >
+                    {isSelected && <Icon source="check" size={14} color="#FFF" />}
+                </Pressable>
+            )}
+
             {/* Avatar */}
             <View
                 style={{
@@ -182,6 +210,25 @@ const UserRow = ({
 
             {/* Action buttons */}
             <View style={{ flexDirection: "row", gap: 2 }}>
+                {!isSettled && onSettle && !isSelectMode && (
+                    <Pressable
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            onSettle(user);
+                        }}
+                        style={({ pressed }) => ({
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: pressed ? colors.successBg : "transparent",
+                        })}
+                        hitSlop={6}
+                    >
+                        <Icon source="check-all" size={17} color={colors.successText} />
+                    </Pressable>
+                )}
                 <Pressable
                     onPress={() => onEdit(user)}
                     style={({ pressed }) => ({
@@ -221,23 +268,45 @@ const UserTable = ({
     onDelete,
     onView,
     onEdit,
+    onSettleUser,
+    onSettleMultipleUsers,
+    isSelectMode = false,
+    setIsSelectMode,
+    currentFilterTab,
+    onFilterTabChange,
 }: {
     users: IUser[];
     onDelete: (user: IUser) => void;
     onView: (user: IUser) => void;
     onEdit: (user: IUser) => void;
+    onSettleUser?: (user: IUser) => void;
+    onSettleMultipleUsers?: (userIds: number[]) => void;
+    isSelectMode?: boolean;
+    setIsSelectMode?: (val: boolean) => void;
+    currentFilterTab?: UserFilterTab;
+    onFilterTabChange?: (tab: UserFilterTab) => void;
 }) => {
     const { colors } = useAppTheme();
     const [searchQuery, setSearchQuery] = useState("");
-    const [filterTab, setFilterTab] = useState<UserFilterTab>("all");
+    const [internalFilterTab, setInternalFilterTab] = useState<UserFilterTab>("all");
+    const filterTab = currentFilterTab !== undefined ? currentFilterTab : internalFilterTab;
+    const setFilterTab = (tabOrFn: UserFilterTab | ((prev: UserFilterTab) => UserFilterTab)) => {
+        const nextTab = typeof tabOrFn === "function" ? tabOrFn(filterTab) : tabOrFn;
+        setInternalFilterTab(nextTab);
+        onFilterTabChange?.(nextTab);
+    };
     const [visibleLimit, setVisibleLimit] = useState(25);
+
+    // Multi-settle selection state
+    const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
 
     const totals = useMemo(() => {
         const receivable = users?.filter((u) => u.balance < 0).reduce((sum, u) => sum + Math.abs(u.balance), 0) || 0;
         const payable = users?.filter((u) => u.balance > 0).reduce((sum, u) => sum + Math.abs(u.balance), 0) || 0;
         const count = users?.length || 0;
         const settled = users?.filter((u) => u.balance === 0).length || 0;
-        return { receivable, payable, count, settled };
+        const unsettledUsers = users?.filter((u) => u.balance !== 0) || [];
+        return { receivable, payable, count, settled, unsettledUsers };
     }, [users]);
 
     // Apply filter tab and search query
@@ -262,6 +331,29 @@ const UserTable = ({
         return list;
     }, [users, filterTab, searchQuery]);
 
+    const eligibleUsers = useMemo(() => {
+        return filteredUsers.filter((u) => u.balance !== 0);
+    }, [filteredUsers]);
+
+    const eligibleCount = eligibleUsers.length;
+    const selectedCount = selectedUserIds.length;
+
+    const selectAllState: "none" | "partial" | "all" = useMemo(() => {
+        if (selectedCount === 0) return "none";
+        if (eligibleCount > 0 && selectedCount >= eligibleCount) return "all";
+        return "partial";
+    }, [selectedCount, eligibleCount]);
+
+    const selectAllIcon =
+        selectAllState === "all"
+            ? "checkbox-marked"
+            : selectAllState === "partial"
+            ? "minus-box"
+            : "checkbox-blank-outline";
+
+    const selectAllIconColor =
+        selectAllState === "none" ? colors.onSurfaceMuted : colors.primary;
+
     const visibleUsers = useMemo(() => {
         return filteredUsers.slice(0, visibleLimit);
     }, [filteredUsers, visibleLimit]);
@@ -277,11 +369,40 @@ const UserTable = ({
         setVisibleLimit(25);
     };
 
+    const toggleSelectUser = (userId: number) => {
+        setSelectedUserIds((prev) =>
+            prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectAllState === "all") {
+            setSelectedUserIds([]);
+        } else {
+            setSelectedUserIds(eligibleUsers.map((u) => u.userId));
+        }
+    };
+
+    const handleBatchSettleSubmit = () => {
+        if (selectedUserIds.length > 0 && onSettleMultipleUsers) {
+            onSettleMultipleUsers(selectedUserIds);
+        }
+    };
+
     React.useEffect(() => {
         if (totals.settled === 0 && filterTab === "settled") {
             setFilterTab("all");
         }
     }, [totals.settled, filterTab]);
+
+    React.useEffect(() => {
+        if (!isSelectMode || eligibleCount === 0) {
+            setSelectedUserIds([]);
+            if (eligibleCount === 0 && isSelectMode && setIsSelectMode) {
+                setIsSelectMode(false);
+            }
+        }
+    }, [isSelectMode, eligibleCount, setIsSelectMode]);
 
     if (!users || users.length === 0) {
         return <EmptyState icon="account-off-outline" title="No accounts found" subtitle="Tap the + button to add your first account" />;
@@ -297,22 +418,17 @@ const UserTable = ({
                     value={searchQuery}
                     onChangeText={(text) => {
                         if (text.trim() && !searchQuery.trim()) {
-                            // Auto-switch to "All" tab when user starts typing a search query
                             setFilterTab("all");
                         }
                         setSearchQuery(text);
                         setVisibleLimit(25);
                     }}
                     dense
-                    style={{
-                        backgroundColor: colors.background,
-                        fontSize: 14,
-                    }}
                     left={<TextInput.Icon icon="magnify" color={colors.onSurfaceMuted} />}
                     right={
                         searchQuery ? (
                             <TextInput.Icon
-                                icon="close"
+                                icon="close-circle"
                                 color={colors.onSurfaceMuted}
                                 onPress={() => {
                                     setSearchQuery("");
@@ -322,7 +438,8 @@ const UserTable = ({
                         ) : null
                     }
                     outlineStyle={{ borderRadius: 12, borderColor: colors.border }}
-                    activeOutlineColor={colors.primary}
+                    contentStyle={{ fontSize: 14 }}
+                    style={{ backgroundColor: colors.surface }}
                 />
             </View>
 
@@ -338,54 +455,51 @@ const UserTable = ({
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{
+                        flexDirection: "row",
+                        alignItems: "center",
                         paddingHorizontal: 16,
                         paddingVertical: 10,
                         gap: 8,
-                        alignItems: "center",
                     }}
                 >
                     <SummaryChip
-                        icon="account-group"
-                        label="All"
-                        value={totals.count.toString()}
+                        icon="account-group-outline"
+                        label="Accounts"
+                        value={String(totals.count)}
                         bgColor={colors.chipAccountBg}
-                        textColor={colors.chipAccountText}
+                        textColor={colors.primary}
                         borderColor={colors.primary}
                         isSelected={filterTab === "all"}
                         onPress={() => handleTabChange("all")}
                     />
-                    {totals.receivable > 0 && (
-                        <SummaryChip
-                            icon="arrow-down-circle"
-                            label="Receivable"
-                            value={`₹${totals.receivable.toLocaleString("en-IN")}`}
-                            bgColor={colors.successBg}
-                            textColor={colors.successText}
-                            borderColor={colors.success}
-                            isSelected={filterTab === "receivable"}
-                            onPress={() => handleTabChange("receivable")}
-                        />
-                    )}
-                    {totals.payable > 0 && (
-                        <SummaryChip
-                            icon="arrow-up-circle"
-                            label="Payable"
-                            value={`₹${totals.payable.toLocaleString("en-IN")}`}
-                            bgColor={colors.dangerBg}
-                            textColor={colors.dangerText}
-                            borderColor={colors.danger}
-                            isSelected={filterTab === "payable"}
-                            onPress={() => handleTabChange("payable")}
-                        />
-                    )}
+                    <SummaryChip
+                        icon="arrow-down-bold-circle-outline"
+                        label="Receivable"
+                        value={`₹${totals.receivable.toLocaleString("en-IN")}`}
+                        bgColor={colors.successBg}
+                        textColor={colors.successText}
+                        borderColor={colors.success}
+                        isSelected={filterTab === "receivable"}
+                        onPress={() => handleTabChange("receivable")}
+                    />
+                    <SummaryChip
+                        icon="arrow-up-bold-circle-outline"
+                        label="Payable"
+                        value={`₹${totals.payable.toLocaleString("en-IN")}`}
+                        bgColor={colors.dangerBg}
+                        textColor={colors.dangerText}
+                        borderColor={colors.danger}
+                        isSelected={filterTab === "payable"}
+                        onPress={() => handleTabChange("payable")}
+                    />
                     {totals.settled > 0 && (
                         <SummaryChip
-                            icon="check-circle"
+                            icon="check-circle-outline"
                             label="Settled"
-                            value={totals.settled.toString()}
+                            value={String(totals.settled)}
                             bgColor={colors.settledBg}
-                            textColor={colors.settledText}
-                            borderColor={colors.onSurfaceMuted}
+                            textColor={colors.onSurfaceMuted}
+                            borderColor={colors.border}
                             isSelected={filterTab === "settled"}
                             onPress={() => handleTabChange("settled")}
                         />
@@ -393,23 +507,110 @@ const UserTable = ({
                 </ScrollView>
             </View>
 
-            {/* List with 25-item incremental loading or EmptyState if no search/filter matches */}
+            {/* Multi Settle Selection Header Bar when active */}
+            {isSelectMode && (
+                <View
+                    style={{
+                        backgroundColor: colors.surfaceVariant,
+                        borderBottomWidth: 1,
+                        borderBottomColor: colors.border,
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                    }}
+                >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Pressable
+                            onPress={toggleSelectAll}
+                            style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 6,
+                                paddingHorizontal: 10,
+                                paddingVertical: 6,
+                                borderRadius: 12,
+                                backgroundColor: colors.surface,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                            }}
+                        >
+                            <Icon source={selectAllIcon} size={16} color={selectAllIconColor} />
+                            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.onSurface }}>
+                                Select All ({eligibleCount})
+                            </Text>
+                        </Pressable>
+
+                        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.onSurfaceVariant }}>
+                            {selectedCount} selected
+                        </Text>
+                    </View>
+
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Pressable
+                            onPress={() => {
+                                if (setIsSelectMode) setIsSelectMode(false);
+                                setSelectedUserIds([]);
+                            }}
+                            style={({ pressed }) => ({
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                                backgroundColor: pressed ? colors.surfaceVariant : colors.surface,
+                            })}
+                        >
+                            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.onSurface }}>
+                                Cancel
+                            </Text>
+                        </Pressable>
+
+                        {selectedCount > 0 && (
+                            <Pressable
+                                onPress={handleBatchSettleSubmit}
+                                style={{
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 6,
+                                    borderRadius: 12,
+                                    backgroundColor: colors.success,
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 4,
+                                }}
+                            >
+                                <Icon source="check-all" size={14} color="#FFF" />
+                                <Text style={{ fontSize: 12, fontWeight: "800", color: "#FFF" }}>
+                                    Settle ({selectedCount})
+                                </Text>
+                            </Pressable>
+                        )}
+                    </View>
+                </View>
+            )}
+
+            {/* Account List */}
             {filteredUsers.length === 0 ? (
                 <EmptyState
                     icon="account-search-outline"
                     title="No matching accounts"
-                    subtitle={searchQuery ? `No account matches "${searchQuery}"` : "No accounts match the selected filter"}
+                    subtitle={searchQuery ? `No accounts match "${searchQuery}"` : "No accounts under this filter"}
                 />
             ) : (
                 <FlatList
                     data={visibleUsers}
-                    keyExtractor={(user) => user.userId.toString()}
+                    keyExtractor={(u) => u.userId.toString()}
                     renderItem={({ item: user }) => (
                         <UserRow
                             user={user}
                             onView={onView}
                             onEdit={onEdit}
                             onDelete={onDelete}
+                            onSettle={onSettleUser}
+                            isSelectMode={isSelectMode}
+                            isSelected={selectedUserIds.includes(user.userId)}
+                            onToggleSelect={toggleSelectUser}
                         />
                     )}
                     contentContainerStyle={{ paddingVertical: 8, paddingBottom: 32 }}

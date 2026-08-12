@@ -25,6 +25,13 @@ export default function Modal({ children, isVisible, setVisibility }: IModalProp
                 borderRadius: 20,
                 paddingBottom: 8,
                 overflow: "hidden",
+                borderWidth: 1,
+                borderColor: colors.border,
+                elevation: 6,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 10,
             }}
         >
             {children}

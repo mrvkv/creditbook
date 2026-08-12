@@ -109,9 +109,9 @@ export const lightColors = {
     surfaceElevated: palette.white,
 
     onBackground: palette.neutral900,
-    onSurface: palette.neutral800,
-    onSurfaceVariant: palette.neutral600,
-    onSurfaceMuted: palette.neutral400,
+    onSurface: palette.neutral900,
+    onSurfaceVariant: palette.neutral700,
+    onSurfaceMuted: palette.neutral500,
 
     border: palette.neutral200,
     borderStrong: palette.neutral300,
@@ -128,13 +128,13 @@ export const lightColors = {
     dangerText: palette.dangerText_light,
 
     settledBg: palette.neutral100,
-    settledText: palette.neutral600,
+    settledText: palette.neutral700,
 
     rowEven: palette.white,
     rowOdd: "#F8F9FF",
 
     modalBg: palette.white,
-    overlay: "rgba(0,0,0,0.5)",
+    overlay: "rgba(15, 23, 42, 0.45)",
 
     toggleTrackActive: palette.primary600,
     toggleTrackInactive: palette.neutral300,

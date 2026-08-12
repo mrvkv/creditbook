@@ -18,9 +18,11 @@ function formatDate(dateStr: string): string {
 }
 
 export type TabType = "all" | "credit" | "debit";
+export type StatusFilter = "active" | "settled" | "all";
 export type SortOption = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
 
 export interface ITransactionFilter {
+    status: StatusFilter;
     tab: TabType;
     sortBy: SortOption;
 }
@@ -44,11 +46,12 @@ const TransactionRow = ({
 }) => {
     const { colors, isDark } = useAppTheme();
     const isCredit = transaction.type === TransactionType.Credit;
+    const isSettled = transaction.isSettled === 1;
 
-    const accentColor = isCredit ? colors.success : colors.danger;
-    const textColor = isCredit ? colors.successText : colors.dangerText;
-    const bgColor = isCredit ? colors.successBg : colors.dangerBg;
-    const borderColor = isCredit ? colors.success : colors.danger;
+    const accentColor = isSettled ? colors.settledText : isCredit ? colors.success : colors.danger;
+    const textColor = isSettled ? colors.settledText : isCredit ? colors.successText : colors.dangerText;
+    const bgColor = isSettled ? colors.settledBg : isCredit ? colors.successBg : colors.dangerBg;
+    const borderColor = isSettled ? colors.borderStrong || colors.border : isCredit ? colors.success : colors.danger;
     const typeLabel = isCredit ? "Taken" : "Given";
     const typeIcon = isCredit ? "arrow-down" : "arrow-up";
 
@@ -64,6 +67,7 @@ const TransactionRow = ({
                 overflow: "hidden",
                 borderWidth: 1,
                 borderColor: colors.border,
+                opacity: 1,
                 shadowColor: isDark ? "#000" : "#000",
                 shadowOffset: { width: 0, height: 1 },
                 shadowOpacity: isDark ? 0.2 : 0.05,
@@ -96,7 +100,7 @@ const TransactionRow = ({
                     flexShrink: 0,
                 }}
             >
-                <Icon source={typeIcon} size={16} color={textColor} />
+                <Icon source={isSettled ? "check-circle" : typeIcon} size={16} color={textColor} />
             </View>
 
             {/* Content */}
@@ -107,6 +111,7 @@ const TransactionRow = ({
                             color: textColor,
                             fontWeight: "800",
                             fontSize: 15,
+                            textDecorationLine: isSettled ? "line-through" : "none",
                         }}
                     >
                         ₹{transaction.amount.toLocaleString("en-IN")}
@@ -125,6 +130,27 @@ const TransactionRow = ({
                             {typeLabel}
                         </Text>
                     </View>
+
+                    {isSettled && (
+                        <View
+                            style={{
+                                paddingHorizontal: 7,
+                                paddingVertical: 2,
+                                borderRadius: 6,
+                                backgroundColor: colors.settledBg,
+                                borderWidth: 1,
+                                borderColor: colors.borderStrong || colors.border,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 3,
+                            }}
+                        >
+                            <Icon source="check-circle" size={11} color={colors.settledText} />
+                            <Text style={{ color: colors.settledText, fontSize: 10, fontWeight: "700" }}>
+                                Settled
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -154,7 +180,7 @@ const TransactionRow = ({
 
             {/* Action buttons */}
             <View style={{ flexDirection: "row", gap: 2, marginRight: 8, flexShrink: 0 }}>
-                {onEdit && (
+                {!isSettled && onEdit && (
                     <Pressable
                         onPress={() => onEdit(transaction)}
                         style={({ pressed }) => ({
@@ -170,20 +196,22 @@ const TransactionRow = ({
                         <Icon source="pencil-outline" size={17} color={colors.primary} />
                     </Pressable>
                 )}
-                <Pressable
-                    onPress={() => onDelete(transaction)}
-                    style={({ pressed }) => ({
-                        width: 34,
-                        height: 34,
-                        borderRadius: 8,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: pressed ? colors.dangerBg : "transparent",
-                    })}
-                    hitSlop={6}
-                >
-                    <Icon source="trash-can-outline" size={17} color={colors.danger} />
-                </Pressable>
+                {!isSettled && (
+                    <Pressable
+                        onPress={() => onDelete(transaction)}
+                        style={({ pressed }) => ({
+                            width: 34,
+                            height: 34,
+                            borderRadius: 8,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: pressed ? colors.dangerBg : "transparent",
+                        })}
+                        hitSlop={6}
+                    >
+                        <Icon source="trash-can-outline" size={17} color={colors.danger} />
+                    </Pressable>
+                )}
             </View>
         </View>
     );
@@ -194,40 +222,59 @@ const TransactionTable = ({
     transactions,
     onEdit,
     onDelete,
+    onSettleAccount,
 }: {
     transactions: ITransaction[];
     onEdit?: (transaction: ITransaction) => void;
     onDelete: (transaction: ITransaction) => void;
+    onSettleAccount?: () => void;
 }) => {
     const { colors } = useAppTheme();
 
-    // Single unified filter object
+    // Unified filter object
     const [filter, setFilter] = useState<ITransactionFilter>({
+        status: "active",
         tab: "all",
         sortBy: "date_desc",
     });
 
     const [visibleLimit, setVisibleLimit] = useState(25);
 
+    // Summary calculation (only considering active transactions for current balance)
     const summary = useMemo(() => {
-        const given = (transactions || []).filter((t) => t.type === TransactionType.Debit).reduce((s, t) => s + t.amount, 0);
-        const taken = (transactions || []).filter((t) => t.type === TransactionType.Credit).reduce((s, t) => s + t.amount, 0);
+        const activeTxList = (transactions || []).filter((t) => t.isSettled !== 1);
+        const given = activeTxList.filter((t) => t.type === TransactionType.Debit).reduce((s, t) => s + t.amount, 0);
+        const taken = activeTxList.filter((t) => t.type === TransactionType.Credit).reduce((s, t) => s + t.amount, 0);
         const net = taken - given;
-        return { given, taken, net };
+        return { given, taken, net, activeCount: activeTxList.length };
+    }, [transactions]);
+
+    const counts = useMemo(() => {
+        const total = transactions?.length || 0;
+        const active = (transactions || []).filter((t) => t.isSettled !== 1).length;
+        const settled = total - active;
+        return { active, settled, total };
     }, [transactions]);
 
     // Apply filtering and sorting using the filter object
     const filteredAndSortedTransactions = useMemo(() => {
         let list = [...(transactions || [])];
 
-        // 1. Tab filter
+        // 1. Status filter (Active vs Settled vs All)
+        if (filter.status === "active") {
+            list = list.filter((t) => t.isSettled !== 1);
+        } else if (filter.status === "settled") {
+            list = list.filter((t) => t.isSettled === 1);
+        }
+
+        // 2. Type Tab filter
         if (filter.tab === "credit") {
             list = list.filter((t) => t.type === TransactionType.Credit);
         } else if (filter.tab === "debit") {
             list = list.filter((t) => t.type === TransactionType.Debit);
         }
 
-        // 2. Sort order
+        // 3. Sort order
         list.sort((a, b) => {
             if (filter.sortBy === "date_desc") {
                 return new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -253,6 +300,11 @@ const TransactionTable = ({
         if (visibleLimit < filteredAndSortedTransactions.length) {
             setVisibleLimit((prev) => prev + 25);
         }
+    };
+
+    const handleStatusChange = (status: StatusFilter) => {
+        setFilter((prev) => ({ ...prev, status }));
+        setVisibleLimit(25);
     };
 
     const handleTabChange = (tab: TabType) => {
@@ -291,33 +343,129 @@ const TransactionTable = ({
                     borderBottomColor: colors.border,
                     paddingHorizontal: 16,
                     paddingVertical: 12,
-                    flexDirection: "row",
-                    justifyContent: "space-around",
                 }}
             >
-                <View style={{ alignItems: "center" }}>
-                    <Text style={{ color: colors.onSurfaceMuted, fontSize: 11, marginBottom: 2 }}>Given</Text>
-                    <Text style={{ color: colors.dangerText, fontWeight: "700", fontSize: 14 }}>
-                        ₹{summary.given.toLocaleString("en-IN")}
-                    </Text>
+                <View
+                    style={{
+                        flexDirection: "row",
+                        justifyContent: "space-around",
+                        alignItems: "center",
+                    }}
+                >
+                    <View style={{ alignItems: "center" }}>
+                        <Text style={{ color: colors.onSurfaceMuted, fontSize: 11, marginBottom: 2 }}>Given</Text>
+                        <Text style={{ color: colors.dangerText, fontWeight: "700", fontSize: 14 }}>
+                            ₹{summary.given.toLocaleString("en-IN")}
+                        </Text>
+                    </View>
+                    <View style={{ width: 1, height: 28, backgroundColor: colors.border }} />
+                    <View style={{ alignItems: "center" }}>
+                        <Text style={{ color: colors.onSurfaceMuted, fontSize: 11, marginBottom: 2 }}>Taken</Text>
+                        <Text style={{ color: colors.successText, fontWeight: "700", fontSize: 14 }}>
+                            ₹{summary.taken.toLocaleString("en-IN")}
+                        </Text>
+                    </View>
+                    <View style={{ width: 1, height: 28, backgroundColor: colors.border }} />
+                    <View style={{ alignItems: "center" }}>
+                        <Text style={{ color: colors.onSurfaceMuted, fontSize: 11, marginBottom: 2 }}>Net Balance</Text>
+                        <Text style={{ color: netColor, fontWeight: "700", fontSize: 14 }}>
+                            {summary.net === 0 ? "Settled" : (netPositive ? "+" : "") + `₹${Math.abs(summary.net).toLocaleString("en-IN")}`}
+                        </Text>
+                    </View>
                 </View>
-                <View style={{ width: 1, backgroundColor: colors.border }} />
-                <View style={{ alignItems: "center" }}>
-                    <Text style={{ color: colors.onSurfaceMuted, fontSize: 11, marginBottom: 2 }}>Taken</Text>
-                    <Text style={{ color: colors.successText, fontWeight: "700", fontSize: 14 }}>
-                        ₹{summary.taken.toLocaleString("en-IN")}
-                    </Text>
-                </View>
-                <View style={{ width: 1, backgroundColor: colors.border }} />
-                <View style={{ alignItems: "center" }}>
-                    <Text style={{ color: colors.onSurfaceMuted, fontSize: 11, marginBottom: 2 }}>Net Balance</Text>
-                    <Text style={{ color: netColor, fontWeight: "700", fontSize: 14 }}>
-                        {summary.net === 0 ? "Settled" : (netPositive ? "+" : "") + `₹${Math.abs(summary.net).toLocaleString("en-IN")}`}
-                    </Text>
-                </View>
+
+                {/* Settle Up Action Button */}
+                {onSettleAccount && counts.active > 0 && (
+                    <Pressable
+                        onPress={onSettleAccount}
+                        style={({ pressed }) => ({
+                            marginTop: 10,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                            backgroundColor: pressed ? colors.successBg : colors.surfaceVariant,
+                            paddingVertical: 8,
+                            paddingHorizontal: 16,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: colors.success + "60",
+                        })}
+                    >
+                        <Icon source="check-all" size={16} color={colors.successText} />
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: colors.successText }}>
+                            Settle Up Account
+                        </Text>
+                    </Pressable>
+                )}
             </View>
 
-            {/* Filter & Sort Bar */}
+            {/* Status Tabs Bar (Active vs Settled History vs All) */}
+            <View
+                style={{
+                    backgroundColor: colors.surface,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                    flexDirection: "row",
+                    paddingHorizontal: 16,
+                    paddingVertical: 6,
+                    gap: 8,
+                }}
+            >
+                {(["active", "settled", "all"] as StatusFilter[]).map((statusKey) => {
+                    const active = filter.status === statusKey;
+                    const count = statusKey === "active" ? counts.active : statusKey === "settled" ? counts.settled : counts.total;
+                    const label = statusKey === "active" ? "Active" : statusKey === "settled" ? "Settled History" : "All Entries";
+
+                    return (
+                        <Pressable
+                            key={statusKey}
+                            onPress={() => handleStatusChange(statusKey)}
+                            style={{
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                                borderRadius: 16,
+                                backgroundColor: active ? colors.primary + "18" : "transparent",
+                                borderWidth: 1,
+                                borderColor: active ? colors.primary : colors.border,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 4,
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    fontWeight: active ? "700" : "500",
+                                    color: active ? colors.primary : colors.onSurfaceVariant,
+                                }}
+                            >
+                                {label}
+                            </Text>
+                            <View
+                                style={{
+                                    paddingHorizontal: 5,
+                                    paddingVertical: 1,
+                                    borderRadius: 8,
+                                    backgroundColor: active ? colors.primary : colors.surfaceVariant,
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        fontSize: 10,
+                                        fontWeight: "700",
+                                        color: active ? "#FFF" : colors.onSurfaceMuted,
+                                    }}
+                                >
+                                    {count}
+                                </Text>
+                            </View>
+                        </Pressable>
+                    );
+                })}
+            </View>
+
+            {/* Sub-Filter (Taken/Given) & Sort Bar */}
             <View
                 style={{
                     backgroundColor: colors.surfaceVariant,
@@ -404,8 +552,18 @@ const TransactionTable = ({
             {filteredAndSortedTransactions.length === 0 ? (
                 <EmptyState
                     icon="filter-remove-outline"
-                    title="No matching transactions"
-                    subtitle="Try switching tabs or changing sort options"
+                    title={
+                        filter.status === "active"
+                            ? "No active transactions"
+                            : filter.status === "settled"
+                            ? "No settled history"
+                            : "No matching transactions"
+                    }
+                    subtitle={
+                        filter.status === "active"
+                            ? "Account has no open entries. View Settled History tab for past entries."
+                            : "Try switching filters or changing sort options"
+                    }
                 />
             ) : (
                 <FlatList
@@ -421,6 +579,33 @@ const TransactionTable = ({
                     initialNumToRender={25}
                     maxToRenderPerBatch={25}
                     windowSize={5}
+                    ListFooterComponent={
+                        filter.status === "active" && counts.settled > 0 ? (
+                            <Pressable
+                                onPress={() => handleStatusChange("settled")}
+                                style={{
+                                    marginHorizontal: 16,
+                                    marginTop: 12,
+                                    marginBottom: 16,
+                                    paddingVertical: 10,
+                                    paddingHorizontal: 14,
+                                    borderRadius: 12,
+                                    backgroundColor: colors.surfaceVariant,
+                                    borderWidth: 1,
+                                    borderColor: colors.border,
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 8,
+                                }}
+                            >
+                                <Icon source="history" size={16} color={colors.primary} />
+                                <Text style={{ fontSize: 12, fontWeight: "600", color: colors.primary }}>
+                                    View Settled History ({counts.settled} past entries)
+                                </Text>
+                            </Pressable>
+                        ) : null
+                    }
                 />
             )}
         </View>

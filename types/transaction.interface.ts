@@ -5,4 +5,5 @@ export interface ITransaction {
     amount: number;
     type: string;
     remark: string;
+    isSettled?: number;
 }

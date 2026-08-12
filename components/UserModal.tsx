@@ -15,6 +15,7 @@ export default function UserModal({ onSubmit, setVisibility, userName, userId }:
     const [name, setName] = useState(userName || "");
     const inputRef = useRef<any>(null);
     const isEdit = !!userName;
+    const isFormValid = !!name.trim();
     const modalTitle = isEdit ? "Edit Account" : "Add Account";
     const modalSubtitle = isEdit ? "Update the account name below." : "Enter a name for the new account.";
 
@@ -42,7 +43,7 @@ export default function UserModal({ onSubmit, setVisibility, userName, userId }:
                     variant="titleLarge"
                     style={{
                         color: colors.onSurface,
-                        fontWeight: "700",
+                        fontWeight: "800",
                         marginBottom: 4,
                     }}
                 >
@@ -50,7 +51,7 @@ export default function UserModal({ onSubmit, setVisibility, userName, userId }:
                 </Text>
                 <Text
                     variant="bodySmall"
-                    style={{ color: colors.onSurfaceMuted }}
+                    style={{ color: colors.onSurfaceVariant }}
                 >
                     {modalSubtitle}
                 </Text>
@@ -61,6 +62,7 @@ export default function UserModal({ onSubmit, setVisibility, userName, userId }:
                 ref={inputRef}
                 autoFocus
                 mode="outlined"
+                textColor={colors.onSurface}
                 style={{
                     marginHorizontal: 20,
                     marginBottom: 20,
@@ -69,25 +71,31 @@ export default function UserModal({ onSubmit, setVisibility, userName, userId }:
                 label="Account Name"
                 value={name}
                 onChangeText={(text) => setName(text)}
-                left={<TextInput.Icon icon="account" />}
-                outlineStyle={{ borderRadius: 12 }}
+                left={<TextInput.Icon icon="account" color={colors.onSurfaceVariant} />}
+                outlineStyle={{ borderRadius: 12, borderColor: colors.borderStrong || colors.border }}
             />
 
             {/* Actions */}
             <View style={{ flexDirection: "row", paddingHorizontal: 20, gap: 10, marginBottom: 8 }}>
                 <Button
                     mode="outlined"
-                    style={{ flex: 1, borderRadius: 12, borderColor: colors.border }}
-                    labelStyle={{ color: colors.onSurfaceVariant }}
+                    style={{ flex: 1, borderRadius: 12, borderColor: colors.borderStrong || colors.border }}
+                    labelStyle={{ color: colors.onSurfaceVariant, fontWeight: "700" }}
                     onPress={() => setVisibility(false)}
                 >
                     Cancel
                 </Button>
                 <Button
                     mode="contained"
+                    buttonColor={isFormValid ? colors.primary : undefined}
+                    disabled={!isFormValid}
                     style={{ flex: 1, borderRadius: 12 }}
+                    labelStyle={{
+                        color: isFormValid ? "#FFFFFF" : colors.onSurfaceMuted,
+                        fontWeight: "700",
+                    }}
                     onPress={() => {
-                        if (name.trim()) {
+                        if (isFormValid) {
                             onSubmit(userId, name.trim());
                             setVisibility(false);
                         }
