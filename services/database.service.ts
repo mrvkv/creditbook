@@ -23,26 +23,32 @@ export default class DatabaseService {
     }
 
     public static async migrate(db: SQLite.SQLiteDatabase): Promise<void> {
-        let isChanged = false;
         let { user_version: currentDbVersion } = db.getFirstSync("PRAGMA user_version") as { user_version: number };
 
+        // Version 0: Initial database creation (fresh install)
         if (currentDbVersion === 0) {
             db.execSync(QueryService.init());
             db.execSync(QueryService.setDefaults());
             currentDbVersion = 1;
-            isChanged = true;
+            db.execSync(`PRAGMA user_version = 1`);
         }
 
+        // Version 1 -> 2: Add preferences key-value table if missing
         if (currentDbVersion === 1) {
             db.execSync("CREATE TABLE IF NOT EXISTS preferences (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);");
             currentDbVersion = 2;
-            isChanged = true;
+            db.execSync(`PRAGMA user_version = 2`);
         }
 
-        DatabaseService.ensureIsSettledColumn(db);
+        // Version 2 -> 3: Add isSettled column to transactions table
+        if (currentDbVersion === 2) {
+            DatabaseService.ensureIsSettledColumn(db);
+            currentDbVersion = 3;
+            db.execSync(`PRAGMA user_version = 3`);
+        }
 
-        isChanged && db.execSync(`PRAGMA user_version = ${currentDbVersion}`);
-        DatabaseService.seedSampleData(db);
+        // Runtime fallback: ensure isSettled column exists on any DB version
+        DatabaseService.ensureIsSettledColumn(db);
     }
 
     public static seedSampleData(db: SQLite.SQLiteDatabase, force: boolean = false): void {

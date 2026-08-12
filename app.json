@@ -13,6 +13,7 @@
                 "foregroundImage": "./assets/images/adaptive-icon.png",
                 "backgroundColor": "#4F46E5"
             },
+            "allowBackup": true,
             "edgeToEdgeEnabled": true,
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
