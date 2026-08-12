@@ -4,7 +4,9 @@ import { IUser } from "@/types/user.interface";
 import * as React from "react";
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, ScrollView, View } from "react-native";
-import { Icon, Text } from "react-native-paper";
+import { Icon, Text, TextInput } from "react-native-paper";
+
+export type UserFilterTab = "all" | "receivable" | "payable" | "settled";
 
 // ─── Summary chip ──────────────────────────────────────────────────────────
 const SummaryChip = ({
@@ -14,6 +16,8 @@ const SummaryChip = ({
     bgColor,
     textColor,
     borderColor,
+    isSelected,
+    onPress,
 }: {
     icon: string;
     label: string;
@@ -21,26 +25,33 @@ const SummaryChip = ({
     bgColor: string;
     textColor: string;
     borderColor: string;
-}) => (
-    <View
-        style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 11,
-            paddingVertical: 6,
-            borderRadius: 20,
-            backgroundColor: bgColor,
-            borderWidth: 1,
-            borderColor: borderColor,
-            gap: 6,
-        }}
-    >
-        <Icon source={icon} size={14} color={textColor} />
-        <Text style={{ color: textColor, fontSize: 12, fontWeight: "700" }}>
-            {label}: {value}
-        </Text>
-    </View>
-);
+    isSelected: boolean;
+    onPress: () => void;
+}) => {
+    const { colors } = useAppTheme();
+    return (
+        <Pressable
+            onPress={onPress}
+            style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderRadius: 20,
+                backgroundColor: isSelected ? bgColor : colors.surface,
+                borderWidth: isSelected ? 2 : 1,
+                borderColor: isSelected ? borderColor : colors.border,
+                opacity: pressed ? 0.8 : 1,
+                gap: 6,
+            })}
+        >
+            <Icon source={icon} size={14} color={isSelected ? textColor : colors.onSurfaceMuted} />
+            <Text style={{ color: isSelected ? textColor : colors.onSurfaceVariant, fontSize: 12, fontWeight: isSelected ? "800" : "500" }}>
+                {label}{value ? `: ${value}` : ""}
+            </Text>
+        </Pressable>
+    );
+};
 
 // ─── User row card ─────────────────────────────────────────────────────────
 const UserRow = ({
@@ -217,6 +228,8 @@ const UserTable = ({
     onEdit: (user: IUser) => void;
 }) => {
     const { colors } = useAppTheme();
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filterTab, setFilterTab] = useState<UserFilterTab>("all");
     const [visibleLimit, setVisibleLimit] = useState(25);
 
     const totals = useMemo(() => {
@@ -227,15 +240,48 @@ const UserTable = ({
         return { receivable, payable, count, settled };
     }, [users]);
 
+    // Apply filter tab and search query
+    const filteredUsers = useMemo(() => {
+        let list = [...(users || [])];
+
+        // Filter tab
+        if (filterTab === "receivable") {
+            list = list.filter((u) => u.balance < 0);
+        } else if (filterTab === "payable") {
+            list = list.filter((u) => u.balance > 0);
+        } else if (filterTab === "settled") {
+            list = list.filter((u) => u.balance === 0);
+        }
+
+        // Search query
+        const q = searchQuery.trim().toLowerCase();
+        if (q) {
+            list = list.filter((u) => u.name.toLowerCase().includes(q));
+        }
+
+        return list;
+    }, [users, filterTab, searchQuery]);
+
     const visibleUsers = useMemo(() => {
-        return (users || []).slice(0, visibleLimit);
-    }, [users, visibleLimit]);
+        return filteredUsers.slice(0, visibleLimit);
+    }, [filteredUsers, visibleLimit]);
 
     const loadMore = () => {
-        if (visibleLimit < (users?.length || 0)) {
+        if (visibleLimit < filteredUsers.length) {
             setVisibleLimit((prev) => prev + 25);
         }
     };
+
+    const handleTabChange = (tab: UserFilterTab) => {
+        setFilterTab((prev) => (prev === tab && tab !== "all" ? "all" : tab));
+        setVisibleLimit(25);
+    };
+
+    React.useEffect(() => {
+        if (totals.settled === 0 && filterTab === "settled") {
+            setFilterTab("all");
+        }
+    }, [totals.settled, filterTab]);
 
     if (!users || users.length === 0) {
         return <EmptyState icon="account-off-outline" title="No accounts found" subtitle="Tap the + button to add your first account" />;
@@ -243,7 +289,44 @@ const UserTable = ({
 
     return (
         <View style={{ flex: 1 }}>
-            {/* Summary bar — single-line horizontal scrollable row */}
+            {/* Search Input Bar */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, backgroundColor: colors.surface }}>
+                <TextInput
+                    mode="outlined"
+                    placeholder="Search accounts by name..."
+                    value={searchQuery}
+                    onChangeText={(text) => {
+                        if (text.trim() && !searchQuery.trim()) {
+                            // Auto-switch to "All" tab when user starts typing a search query
+                            setFilterTab("all");
+                        }
+                        setSearchQuery(text);
+                        setVisibleLimit(25);
+                    }}
+                    dense
+                    style={{
+                        backgroundColor: colors.background,
+                        fontSize: 14,
+                    }}
+                    left={<TextInput.Icon icon="magnify" color={colors.onSurfaceMuted} />}
+                    right={
+                        searchQuery ? (
+                            <TextInput.Icon
+                                icon="close"
+                                color={colors.onSurfaceMuted}
+                                onPress={() => {
+                                    setSearchQuery("");
+                                    setVisibleLimit(25);
+                                }}
+                            />
+                        ) : null
+                    }
+                    outlineStyle={{ borderRadius: 12, borderColor: colors.border }}
+                    activeOutlineColor={colors.primary}
+                />
+            </View>
+
+            {/* Summary & Filter Bar */}
             <View
                 style={{
                     backgroundColor: colors.surface,
@@ -263,11 +346,13 @@ const UserTable = ({
                 >
                     <SummaryChip
                         icon="account-group"
-                        label="Accounts"
+                        label="All"
                         value={totals.count.toString()}
                         bgColor={colors.chipAccountBg}
                         textColor={colors.chipAccountText}
-                        borderColor={colors.primary + "30"}
+                        borderColor={colors.primary}
+                        isSelected={filterTab === "all"}
+                        onPress={() => handleTabChange("all")}
                     />
                     {totals.receivable > 0 && (
                         <SummaryChip
@@ -276,7 +361,9 @@ const UserTable = ({
                             value={`₹${totals.receivable.toLocaleString("en-IN")}`}
                             bgColor={colors.successBg}
                             textColor={colors.successText}
-                            borderColor={colors.success + "40"}
+                            borderColor={colors.success}
+                            isSelected={filterTab === "receivable"}
+                            onPress={() => handleTabChange("receivable")}
                         />
                     )}
                     {totals.payable > 0 && (
@@ -286,7 +373,9 @@ const UserTable = ({
                             value={`₹${totals.payable.toLocaleString("en-IN")}`}
                             bgColor={colors.dangerBg}
                             textColor={colors.dangerText}
-                            borderColor={colors.danger + "40"}
+                            borderColor={colors.danger}
+                            isSelected={filterTab === "payable"}
+                            onPress={() => handleTabChange("payable")}
                         />
                     )}
                     {totals.settled > 0 && (
@@ -296,32 +385,42 @@ const UserTable = ({
                             value={totals.settled.toString()}
                             bgColor={colors.settledBg}
                             textColor={colors.settledText}
-                            borderColor={colors.border}
+                            borderColor={colors.onSurfaceMuted}
+                            isSelected={filterTab === "settled"}
+                            onPress={() => handleTabChange("settled")}
                         />
                     )}
                 </ScrollView>
             </View>
 
-            {/* List with 25-item incremental loading */}
-            <FlatList
-                data={visibleUsers}
-                keyExtractor={(user) => user.userId.toString()}
-                renderItem={({ item: user }) => (
-                    <UserRow
-                        user={user}
-                        onView={onView}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                    />
-                )}
-                contentContainerStyle={{ paddingVertical: 8, paddingBottom: 32 }}
-                showsVerticalScrollIndicator={false}
-                onEndReached={loadMore}
-                onEndReachedThreshold={0.5}
-                initialNumToRender={25}
-                maxToRenderPerBatch={25}
-                windowSize={5}
-            />
+            {/* List with 25-item incremental loading or EmptyState if no search/filter matches */}
+            {filteredUsers.length === 0 ? (
+                <EmptyState
+                    icon="account-search-outline"
+                    title="No matching accounts"
+                    subtitle={searchQuery ? `No account matches "${searchQuery}"` : "No accounts match the selected filter"}
+                />
+            ) : (
+                <FlatList
+                    data={visibleUsers}
+                    keyExtractor={(user) => user.userId.toString()}
+                    renderItem={({ item: user }) => (
+                        <UserRow
+                            user={user}
+                            onView={onView}
+                            onEdit={onEdit}
+                            onDelete={onDelete}
+                        />
+                    )}
+                    contentContainerStyle={{ paddingVertical: 8, paddingBottom: 32 }}
+                    showsVerticalScrollIndicator={false}
+                    onEndReached={loadMore}
+                    onEndReachedThreshold={0.5}
+                    initialNumToRender={25}
+                    maxToRenderPerBatch={25}
+                    windowSize={5}
+                />
+            )}
         </View>
     );
 };

@@ -1,6 +1,7 @@
 import { TransactionType } from "@/enums/transaction.enum";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import DatabaseService from "@/services/database.service";
+import { ITransaction } from "@/types/transaction.interface";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -10,14 +11,15 @@ interface ITransactionModalProps {
     readonly userId: string;
     readonly setVisibility: (isVisible: boolean) => void;
     readonly refreshTransactionList: () => void;
+    readonly transaction?: ITransaction;
 }
 
-export default function TransactionModal({ userId, setVisibility, refreshTransactionList }: ITransactionModalProps) {
+export default function TransactionModal({ userId, setVisibility, refreshTransactionList, transaction }: ITransactionModalProps) {
     const db = useSQLiteContext();
     const { colors } = useAppTheme();
-    const [type, setType] = useState(TransactionType.Debit);
-    const [amount, setAmount] = useState("");
-    const [remark, setRemark] = useState("");
+    const [type, setType] = useState(transaction ? transaction.type : TransactionType.Debit);
+    const [amount, setAmount] = useState(transaction ? String(transaction.amount) : "");
+    const [remark, setRemark] = useState(transaction?.remark ?? "");
     const amountInputRef = useRef<any>(null);
 
     const isDebit = type === TransactionType.Debit;
@@ -31,7 +33,15 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
 
     function handleSubmit() {
         if (!amount || parseFloat(amount) <= 0) return;
-        DatabaseService.createTransaction(db, parseInt(userId), parseFloat(amount), type, remark);
+        if (transaction) {
+            DatabaseService.updateTransaction(db, transaction, {
+                amount: parseFloat(amount),
+                type: type as TransactionType,
+                remark,
+            });
+        } else {
+            DatabaseService.createTransaction(db, parseInt(userId), parseFloat(amount), type, remark);
+        }
         setAmount("");
         setRemark("");
         setType(TransactionType.Debit);
@@ -56,10 +66,10 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                     variant="titleLarge"
                     style={{ color: colors.onSurface, fontWeight: "700", marginBottom: 4 }}
                 >
-                    Add Transaction
+                    {transaction ? "Edit Transaction" : "Add Transaction"}
                 </Text>
                 <Text variant="bodySmall" style={{ color: colors.onSurfaceMuted }}>
-                    Record a credit or debit entry.
+                    {transaction ? "Modify credit or debit entry details." : "Record a credit or debit entry."}
                 </Text>
             </View>
 

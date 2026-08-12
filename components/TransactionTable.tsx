@@ -35,9 +35,11 @@ const SORT_LABELS: Record<SortOption, { label: string; icon: string }> = {
 // ─── Transaction row card ──────────────────────────────────────────────────
 const TransactionRow = ({
     transaction,
+    onEdit,
     onDelete,
 }: {
     transaction: ITransaction;
+    onEdit?: (t: ITransaction) => void;
     onDelete: (t: ITransaction) => void;
 }) => {
     const { colors, isDark } = useAppTheme();
@@ -150,23 +152,39 @@ const TransactionRow = ({
                 </View>
             </View>
 
-            {/* Delete button */}
-            <Pressable
-                onPress={() => onDelete(transaction)}
-                style={({ pressed }) => ({
-                    width: 38,
-                    height: 38,
-                    borderRadius: 10,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: pressed ? colors.dangerBg : "transparent",
-                    marginRight: 8,
-                    flexShrink: 0,
-                })}
-                hitSlop={6}
-            >
-                <Icon source="trash-can-outline" size={18} color={colors.danger} />
-            </Pressable>
+            {/* Action buttons */}
+            <View style={{ flexDirection: "row", gap: 2, marginRight: 8, flexShrink: 0 }}>
+                {onEdit && (
+                    <Pressable
+                        onPress={() => onEdit(transaction)}
+                        style={({ pressed }) => ({
+                            width: 34,
+                            height: 34,
+                            borderRadius: 8,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: pressed ? colors.surfaceVariant : "transparent",
+                        })}
+                        hitSlop={6}
+                    >
+                        <Icon source="pencil-outline" size={17} color={colors.primary} />
+                    </Pressable>
+                )}
+                <Pressable
+                    onPress={() => onDelete(transaction)}
+                    style={({ pressed }) => ({
+                        width: 34,
+                        height: 34,
+                        borderRadius: 8,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: pressed ? colors.dangerBg : "transparent",
+                    })}
+                    hitSlop={6}
+                >
+                    <Icon source="trash-can-outline" size={17} color={colors.danger} />
+                </Pressable>
+            </View>
         </View>
     );
 };
@@ -174,9 +192,11 @@ const TransactionRow = ({
 // ─── Main component ─────────────────────────────────────────────────────────
 const TransactionTable = ({
     transactions,
+    onEdit,
     onDelete,
 }: {
     transactions: ITransaction[];
+    onEdit?: (transaction: ITransaction) => void;
     onDelete: (transaction: ITransaction) => void;
 }) => {
     const { colors } = useAppTheme();
@@ -392,7 +412,7 @@ const TransactionTable = ({
                     data={visibleTransactions}
                     keyExtractor={(t) => t.transactionId.toString()}
                     renderItem={({ item: t }) => (
-                        <TransactionRow transaction={t} onDelete={onDelete} />
+                        <TransactionRow transaction={t} onEdit={onEdit} onDelete={onDelete} />
                     )}
                     contentContainerStyle={{ paddingVertical: 8, paddingBottom: 32 }}
                     showsVerticalScrollIndicator={false}

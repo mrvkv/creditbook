@@ -218,4 +218,33 @@ export default class DatabaseService {
             db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, new Date().toISOString(), userId);
         }
     }
+
+    public static updateTransaction(
+        db: SQLite.SQLiteDatabase,
+        oldTransaction: ITransaction,
+        newTransaction: { amount: number; type: string; remark: string }
+    ): void {
+        let userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", oldTransaction.userId) as { balance: number } | null;
+        if (userRow) {
+            let balance = userRow.balance;
+            if (oldTransaction.type === TransactionType.Debit) {
+                balance += oldTransaction.amount;
+            } else {
+                balance -= oldTransaction.amount;
+            }
+            if (newTransaction.type === TransactionType.Debit) {
+                balance -= newTransaction.amount;
+            } else {
+                balance += newTransaction.amount;
+            }
+            db.runSync(
+                "UPDATE transactions SET amount = ?, type = ?, remark = ? WHERE transactionId = ?",
+                newTransaction.amount,
+                newTransaction.type,
+                newTransaction.remark,
+                oldTransaction.transactionId
+            );
+            db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, new Date().toISOString(), oldTransaction.userId);
+        }
+    }
 }

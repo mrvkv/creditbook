@@ -26,6 +26,7 @@ export default function Details() {
     const [transactions, setTransactions] = useState<ITransaction[]>([]);
     const [userName, setUserName] = useState<string>("");
     const [isVisible, setIsVisible] = useState(false);
+    const [isEdit, setIsEdit] = useState(false);
     const [isDelete, setIsDelete] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<ITransaction>();
 
@@ -85,14 +86,24 @@ export default function Details() {
     }
 
     function addTransactionHandler(): void {
+        setIsEdit(false);
         setIsDelete(false);
+        setSelectedTransaction(undefined);
+        setIsVisible(true);
+    }
+
+    function editTransactionHandler(transaction: ITransaction): void {
+        setIsDelete(false);
+        setIsEdit(true);
+        setSelectedTransaction(transaction);
         setIsVisible(true);
     }
 
     function deleteTransactionHandler(transaction: ITransaction): void {
+        setIsEdit(false);
         setIsDelete(true);
-        setIsVisible(true);
         setSelectedTransaction(transaction);
+        setIsVisible(true);
     }
 
     function deleteTransaction(): void {
@@ -112,6 +123,7 @@ export default function Details() {
                                 userId={userId}
                                 setVisibility={setIsVisible}
                                 refreshTransactionList={refreshTransactionList}
+                                transaction={isEdit ? selectedTransaction : undefined}
                             />
                         </Modal>
                     )}
@@ -126,7 +138,11 @@ export default function Details() {
                     )}
                 </ThemeContext.Provider>
             </Portal>
-            <TransactionTable transactions={transactions} onDelete={deleteTransactionHandler} />
+            <TransactionTable
+                transactions={transactions}
+                onEdit={editTransactionHandler}
+                onDelete={deleteTransactionHandler}
+            />
         </View>
     );
 }
