@@ -55,7 +55,7 @@ export default function RootLayout() {
                         <Stack.Screen
                             name="index"
                             options={{
-                                title: "Credit Book",
+                                title: "Finance Keeper",
                                 headerTitleAlign: "left",
                                 headerTitle: () => (
                                     <ThemeContext.Provider value={appTheme}>

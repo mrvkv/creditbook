@@ -135,14 +135,14 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
                     }}
                 >
                     <Text style={styles.title}>
-                        <Text style={styles.titleWhite}>Credit</Text>
-                        <Text style={styles.titlePurple}>Book</Text>
+                        <Text style={styles.titleWhite}>Finance </Text>
+                        <Text style={styles.titlePurple}>Keeper</Text>
                     </Text>
                 </Animated.View>
 
                 {/* Subtitle */}
                 <Animated.View style={{ opacity: subOpacity, marginTop: 8 }}>
-                    <Text style={styles.subtitle}>PERSONAL LEDGER</Text>
+                    <Text style={styles.subtitle}>PERSONAL FINANCE BOOKS</Text>
                 </Animated.View>
             </View>
 

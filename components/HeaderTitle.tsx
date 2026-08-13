@@ -48,8 +48,8 @@ export function LogoBadge({ size = 36 }: { size?: number }) {
 }
 
 /**
- * Home screen header title — logo badge + "CreditBook" with a
- * "PERSONAL LEDGER" tagline, matching splash screen.
+ * Home screen header title — logo badge + "Finance Keeper" with a
+ * "PERSONAL FINANCE BOOKS" tagline, matching splash screen.
  */
 export function HomeHeaderTitle() {
     const { isDark } = useAppTheme();
@@ -70,10 +70,10 @@ export function HomeHeaderTitle() {
                         lineHeight: 22,
                     }}
                 >
-                    Credit<Text style={{ color: purpleColor, fontWeight: "900" }}>Book</Text>
+                    Finance<Text style={{ color: purpleColor, fontWeight: "900" }}> Keeper</Text>
                 </Text>
                 <Text style={{ color: subColor, fontSize: 9, letterSpacing: 1.8, lineHeight: 12, fontWeight: "600" }}>
-                    PERSONAL LEDGER
+                    PERSONAL FINANCE BOOKS
                 </Text>
             </View>
         </View>
