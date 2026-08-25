@@ -130,7 +130,7 @@ const UserRow = ({
                         justifyContent: "center",
                     }}
                 >
-                    {isSelected && <Icon source="check" size={14} color="#FFF" />}
+                    {isSelected && <Icon source="check" size={14} color={colors.onSuccess} />}
                 </Pressable>
             )}
 
@@ -611,8 +611,8 @@ const UserTable = ({
                                     gap: 4,
                                 }}
                             >
-                                <Icon source="check-all" size={14} color="#FFF" />
-                                <Text style={{ fontSize: 12, fontWeight: "800", color: "#FFF" }}>
+                                <Icon source="check-all" size={14} color={colors.onSuccess} />
+                                <Text style={{ fontSize: 12, fontWeight: "800", color: colors.onSuccess }}>
                                     Settle ({selectedCount})
                                 </Text>
                             </Pressable>

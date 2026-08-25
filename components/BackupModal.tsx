@@ -135,7 +135,7 @@ export default function BackupModal({ setVisibility, onRestoreSuccess, initialMo
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        backgroundColor: colors.surface,
+                        backgroundColor: colors.modalBg,
                         zIndex: 999,
                         alignItems: "center",
                         justifyContent: "center",
@@ -278,7 +278,7 @@ export default function BackupModal({ setVisibility, onRestoreSuccess, initialMo
                             mode="contained"
                             onPress={handleFinishRestore}
                             icon="check"
-                            buttonColor="#059669"
+                            buttonColor={colors.success}
                             style={{ width: "100%", borderRadius: 10, marginTop: 4 }}
                             contentStyle={{ paddingVertical: 6 }}
                         >
@@ -411,8 +411,8 @@ export default function BackupModal({ setVisibility, onRestoreSuccess, initialMo
                                 />
 
                                 {importError && (
-                                    <View style={{ backgroundColor: "#FEE2E2", padding: 12, borderRadius: 10 }}>
-                                        <Text style={{ color: "#DC2626", fontSize: 12, fontWeight: "600" }}>{importError}</Text>
+                                    <View style={{ backgroundColor: colors.dangerBg, padding: 12, borderRadius: 10 }}>
+                                        <Text style={{ color: colors.dangerText, fontSize: 12, fontWeight: "600" }}>{importError}</Text>
                                     </View>
                                 )}
 
@@ -463,8 +463,8 @@ export default function BackupModal({ setVisibility, onRestoreSuccess, initialMo
                                         </Button>
 
                                         {importError && (
-                                            <View style={{ backgroundColor: "#FEE2E2", padding: 12, borderRadius: 10 }}>
-                                                <Text style={{ color: "#DC2626", fontSize: 12, fontWeight: "600" }}>{importError}</Text>
+                                            <View style={{ backgroundColor: colors.dangerBg, padding: 12, borderRadius: 10 }}>
+                                                <Text style={{ color: colors.dangerText, fontSize: 12, fontWeight: "600" }}>{importError}</Text>
                                             </View>
                                         )}
                                     </>
@@ -504,7 +504,7 @@ export default function BackupModal({ setVisibility, onRestoreSuccess, initialMo
                                             loading={isLoading}
                                             disabled={isLoading}
                                             icon="database-import"
-                                            buttonColor="#059669"
+                                            buttonColor={colors.success}
                                             style={{ borderRadius: 10, marginTop: 8 }}
                                             contentStyle={{ paddingVertical: 6 }}
                                         >

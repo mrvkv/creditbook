@@ -34,6 +34,7 @@ export default function ConfirmationModal({
     let defaultTitle = "Confirm Delete";
     let defaultSubmitLabel = "Delete";
     let btnColor = colors.danger;
+    let onAccentColor = colors.onDanger;
 
     if (variant === "success") {
         iconBg = colors.success;
@@ -41,12 +42,14 @@ export default function ConfirmationModal({
         defaultTitle = "Confirm Settlement";
         defaultSubmitLabel = "Settle Up";
         btnColor = colors.success;
+        onAccentColor = colors.onSuccess;
     } else if (variant === "primary") {
         iconBg = colors.primary;
         defaultIcon = "information-outline";
         defaultTitle = "Confirm Action";
         defaultSubmitLabel = "Confirm";
         btnColor = colors.primary;
+        onAccentColor = colors.onPrimary;
     }
 
     const modalTitle = title || defaultTitle;
@@ -105,7 +108,7 @@ export default function ConfirmationModal({
                             marginBottom: 14,
                         }}
                     >
-                        <Icon source={modalIcon} size={28} color="#FFFFFF" />
+                        <Icon source={modalIcon} size={28} color={onAccentColor} />
                     </View>
                     <Text
                         variant="titleMedium"
@@ -161,7 +164,7 @@ export default function ConfirmationModal({
                         mode="contained"
                         buttonColor={btnColor}
                         style={{ flex: 1, borderRadius: 12 }}
-                        labelStyle={{ color: "#FFFFFF", fontWeight: "700" }}
+                        labelStyle={{ color: onAccentColor, fontWeight: "700" }}
                         onPress={() => {
                             onSubmit();
                             setIsVisible(false);

@@ -125,7 +125,7 @@ export default function QuickAddModal({ users, setVisibility, onSuccess, onAddUs
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        backgroundColor: colors.surface,
+                        backgroundColor: colors.modalBg,
                         zIndex: 999,
                         alignItems: "center",
                         justifyContent: "center",
@@ -435,7 +435,7 @@ export default function QuickAddModal({ users, setVisibility, onSuccess, onAddUs
                                     style={{
                                         fontSize: 14,
                                         fontWeight: type === TransactionType.Debit ? "800" : "600",
-                                        color: type === TransactionType.Debit ? "#FFFFFF" : colors.onSurfaceVariant,
+                                        color: type === TransactionType.Debit ? colors.onDanger : colors.onSurfaceVariant,
                                     }}
                                 >
                                     You Gave ₹
@@ -457,7 +457,7 @@ export default function QuickAddModal({ users, setVisibility, onSuccess, onAddUs
                                     style={{
                                         fontSize: 14,
                                         fontWeight: type === TransactionType.Credit ? "800" : "600",
-                                        color: type === TransactionType.Credit ? "#FFFFFF" : colors.onSurfaceVariant,
+                                        color: type === TransactionType.Credit ? colors.onSuccess : colors.onSurfaceVariant,
                                     }}
                                 >
                                     You Got ₹
@@ -618,8 +618,8 @@ export default function QuickAddModal({ users, setVisibility, onSuccess, onAddUs
 
                         {/* Error Message if any */}
                         {errorMsg && (
-                            <View style={{ backgroundColor: "#FEE2E2", padding: 10, borderRadius: 8 }}>
-                                <Text style={{ color: "#DC2626", fontSize: 12, fontWeight: "600" }}>{errorMsg}</Text>
+                            <View style={{ backgroundColor: colors.dangerBg, padding: 10, borderRadius: 8 }}>
+                                <Text style={{ color: colors.dangerText, fontSize: 12, fontWeight: "600" }}>{errorMsg}</Text>
                             </View>
                         )}
 

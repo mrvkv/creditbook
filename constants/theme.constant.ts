@@ -130,6 +130,10 @@ export const lightColors = {
     settledBg: palette.neutral100,
     settledText: palette.neutral700,
 
+    onPrimary: palette.white,
+    onSuccess: palette.white,
+    onDanger: palette.white,
+
     rowEven: palette.white,
     rowOdd: "#F8F9FF",
 
@@ -174,6 +178,10 @@ export const darkColors = {
 
     settledBg: palette.dark_surface1,
     settledText: palette.dark_subtext,
+
+    onPrimary: palette.dark_crust,
+    onSuccess: palette.dark_crust,
+    onDanger: palette.dark_crust,
 
     rowEven: palette.dark_base,
     rowOdd: palette.dark_surface0,

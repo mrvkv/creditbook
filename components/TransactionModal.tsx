@@ -113,7 +113,7 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                     >
                         <Text
                             style={{
-                                color: isDebit ? "#FFFFFF" : colors.onSurfaceVariant,
+                                color: isDebit ? colors.onDanger : colors.onSurfaceVariant,
                                 fontWeight: isDebit ? "800" : "500",
                                 fontSize: 14,
                             }}
@@ -139,7 +139,7 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                     >
                         <Text
                             style={{
-                                color: !isDebit ? "#FFFFFF" : colors.onSurfaceVariant,
+                                color: !isDebit ? colors.onSuccess : colors.onSurfaceVariant,
                                 fontWeight: !isDebit ? "800" : "500",
                                 fontSize: 14,
                             }}
@@ -203,7 +203,7 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                     disabled={!isFormValid}
                     style={{ flex: 1, borderRadius: 12 }}
                     labelStyle={{
-                        color: isFormValid ? "#FFFFFF" : colors.onSurfaceMuted,
+                        color: isFormValid ? (isDebit ? colors.onDanger : colors.onSuccess) : colors.onSurfaceMuted,
                         fontWeight: "700",
                     }}
                     onPress={handleSubmit}

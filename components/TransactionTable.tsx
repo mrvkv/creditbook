@@ -454,7 +454,7 @@ const TransactionTable = ({
                                     style={{
                                         fontSize: 10,
                                         fontWeight: "700",
-                                        color: active ? "#FFF" : colors.onSurfaceMuted,
+                                        color: active ? colors.onPrimary : colors.onSurfaceMuted,
                                     }}
                                 >
                                     {count}

@@ -91,7 +91,7 @@ export default function UserModal({ onSubmit, setVisibility, userName, userId }:
                     disabled={!isFormValid}
                     style={{ flex: 1, borderRadius: 12 }}
                     labelStyle={{
-                        color: isFormValid ? "#FFFFFF" : colors.onSurfaceMuted,
+                        color: isFormValid ? colors.onPrimary : colors.onSurfaceMuted,
                         fontWeight: "700",
                     }}
                     onPress={() => {
