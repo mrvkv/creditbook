@@ -39,16 +39,10 @@ export default function QuickAddModal({ users, setVisibility, onSuccess, onAddUs
     } | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    // Query ALL accounts directly from database so search always includes every single user
-    const allDbUsers = useMemo(() => {
-        try {
-            return DatabaseService.getUsers(db);
-        } catch {
-            return users;
-        }
-    }, [db, users]);
+    // Accounts array passed from props
+    const allDbUsers = users || [];
 
-    // Filter accounts by search query across ALL users in the database
+    // Filter accounts by search query across ALL users
     const filteredUsers = useMemo(() => {
         if (!searchQuery.trim()) return allDbUsers;
         const q = searchQuery.toLowerCase().trim();

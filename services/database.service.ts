@@ -203,6 +203,13 @@ export default class DatabaseService {
         return db.getAllSync("SELECT * FROM transactions where userId = ?", userId);
     }
 
+    public static getAllTransactions(db: SQLite.SQLiteDatabase): ITransaction[] {
+        DatabaseService.ensureIsSettledColumn(db);
+        return db.getAllSync<ITransaction>(
+            "SELECT transactions.*, users.name as userName FROM transactions JOIN users ON transactions.userId = users.userId ORDER BY transactions.date DESC, transactions.transactionId DESC"
+        );
+    }
+
     public static createTransaction(db: SQLite.SQLiteDatabase, userId: number, amount: number, type: string, remark: string): void {
         DatabaseService.ensureIsSettledColumn(db);
         const row = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number } | null;

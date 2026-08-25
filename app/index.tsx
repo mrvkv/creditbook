@@ -58,6 +58,10 @@ export default function Index() {
         if (__DEV__) {
             DatabaseService.seedSampleData(db);
         }
+        try {
+            const pref = DatabaseService.getPreference(db, "hideSettled", "false") === "true";
+            setHideSettled(pref);
+        } catch {}
         setUsers(DatabaseService.getUsers(db));
     }, [db]);
 
@@ -84,7 +88,7 @@ export default function Index() {
     useLayoutEffect(() => {
         const headerRight = () => (
             <ThemeContext.Provider value={appTheme}>
-                <HeaderRight handler={addUserHandler} onBackupPress={() => openBackupModal("export")} />
+                <HeaderRight handler={addUserHandler} onBackupPress={() => openBackupModal("export")} onTimelinePress={() => router.push("/transactions")} />
             </ThemeContext.Provider>
         );
         const headerTitle = () => (

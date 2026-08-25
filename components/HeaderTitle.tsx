@@ -142,3 +142,61 @@ export function TransactionsHeaderTitle({ userName }: { userName?: string }) {
     );
 }
 
+/**
+ * Global timeline screen header title — history icon + "Global Timeline" + "All Accounts Transactions" subtext.
+ */
+export function GlobalTimelineHeaderTitle() {
+    const { isDark } = useAppTheme();
+    const textColor = isDark ? "#CDD6F4" : "#ffffff";
+    const subColor = isDark ? "rgba(205,214,244,0.6)" : "rgba(255,255,255,0.7)";
+
+    return (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View
+                style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    backgroundColor: isDark ? "rgba(129,140,248,0.25)" : "rgba(255,255,255,0.22)",
+                    borderWidth: 1.5,
+                    borderColor: isDark ? "rgba(129,140,248,0.5)" : "rgba(255,255,255,0.45)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                }}
+            >
+                <Icon
+                    source="history"
+                    size={18}
+                    color={isDark ? "#818CF8" : "#ffffff"}
+                />
+            </View>
+
+            <View style={{ alignItems: "flex-start", flexShrink: 1 }}>
+                <Text
+                    numberOfLines={1}
+                    style={{
+                        color: textColor,
+                        fontSize: 18,
+                        fontWeight: "800",
+                        letterSpacing: 0.2,
+                        lineHeight: 22,
+                    }}
+                >
+                    Global Timeline
+                </Text>
+                <Text
+                    numberOfLines={1}
+                    style={{
+                        color: subColor,
+                        fontSize: 10,
+                        letterSpacing: 0.5,
+                        lineHeight: 14,
+                    }}
+                >
+                    All Accounts Transactions
+                </Text>
+            </View>
+        </View>
+    );
+}
+

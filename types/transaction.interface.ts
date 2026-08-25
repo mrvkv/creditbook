@@ -6,4 +6,5 @@ export interface ITransaction {
     type: string;
     remark: string;
     isSettled?: number;
+    userName?: string;
 }

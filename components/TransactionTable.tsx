@@ -7,14 +7,44 @@ import { useMemo, useState } from "react";
 import { FlatList, Pressable, ScrollView, View } from "react-native";
 import { Icon, Text } from "react-native-paper";
 
-function formatDate(dateStr: string): string {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const dateLabelCache = new Map<string, string>();
+const timeCache = new Map<string, string>();
+
+function formatDateLabel(dateStr: string): string {
+    const key = dateStr.substring(0, 10);
+    if (dateLabelCache.has(key)) return dateLabelCache.get(key)!;
+
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
-    const day = d.getDate();
-    const month = months[d.getMonth()];
-    const year = d.getFullYear();
-    return `${day} ${month} ${year}`;
+    const now = new Date();
+    
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const itemDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+    let res = "";
+    if (itemDate.getTime() === today.getTime()) {
+        res = "Today";
+    } else if (itemDate.getTime() === yesterday.getTime()) {
+        res = "Yesterday";
+    } else {
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        res = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    }
+
+    dateLabelCache.set(key, res);
+    return res;
+}
+
+function formatTime(dateStr: string): string {
+    if (timeCache.has(dateStr)) return timeCache.get(dateStr)!;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    const res = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    timeCache.set(dateStr, res);
+    return res;
 }
 
 export type TabType = "all" | "credit" | "debit";
@@ -34,9 +64,9 @@ const SORT_LABELS: Record<SortOption, { label: string; icon: string }> = {
     amount_asc: { label: "Low Amount", icon: "sort-numeric-ascending" },
 };
 
-// ─── Transaction row card ──────────────────────────────────────────────────
+// ─── Transaction Card Component (Identical to Global Timeline styling) ───────
 const TransactionRow = ({
-    transaction,
+    transaction: t,
     onEdit,
     onDelete,
 }: {
@@ -44,180 +74,144 @@ const TransactionRow = ({
     onEdit?: (t: ITransaction) => void;
     onDelete: (t: ITransaction) => void;
 }) => {
-    const { colors, isDark } = useAppTheme();
-    const isCredit = transaction.type === TransactionType.Credit;
-    const isSettled = transaction.isSettled === 1;
+    const { colors } = useAppTheme();
+    const isCredit = t.type === TransactionType.Credit;
+    const isSettled = t.isSettled === 1;
 
-    const accentColor = isSettled ? colors.settledText : isCredit ? colors.success : colors.danger;
     const textColor = isSettled ? colors.settledText : isCredit ? colors.successText : colors.dangerText;
     const bgColor = isSettled ? colors.settledBg : isCredit ? colors.successBg : colors.dangerBg;
     const borderColor = isSettled ? colors.borderStrong || colors.border : isCredit ? colors.success : colors.danger;
-    const typeLabel = isCredit ? "Taken" : "Given";
-    const typeIcon = isCredit ? "arrow-down" : "arrow-up";
+
+    const timeString = formatTime(t.date);
+    const dateLabel = formatDateLabel(t.date);
+    const dateDisplay = timeString ? `${dateLabel} • ${timeString}` : dateLabel;
 
     return (
-        <View
-            style={{
-                flexDirection: "row",
-                alignItems: "center",
+        <Pressable
+            onPress={() => !isSettled && onEdit?.(t)}
+            style={({ pressed }) => ({
                 backgroundColor: colors.surface,
                 marginHorizontal: 16,
-                marginVertical: 5,
+                marginVertical: 4,
                 borderRadius: 14,
                 overflow: "hidden",
                 borderWidth: 1,
                 borderColor: colors.border,
-                opacity: 1,
-                shadowColor: isDark ? "#000" : "#000",
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: isDark ? 0.2 : 0.05,
-                shadowRadius: 4,
-                elevation: 1,
-            }}
+                opacity: pressed && !isSettled ? 0.85 : 1,
+                padding: 12,
+                gap: 10,
+            })}
         >
-            {/* Left accent bar */}
-            <View
-                style={{
-                    width: 4,
-                    alignSelf: "stretch",
-                    backgroundColor: accentColor,
-                }}
-            />
-
-            {/* Type icon */}
-            <View
-                style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor: bgColor,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginLeft: 12,
-                    marginRight: 10,
-                    borderWidth: 1,
-                    borderColor: borderColor + "50",
-                    flexShrink: 0,
-                }}
-            >
-                <Icon source={isSettled ? "check-circle" : typeIcon} size={16} color={textColor} />
-            </View>
-
-            {/* Content */}
-            <View style={{ flex: 1, paddingVertical: 12 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                    <Text
-                        style={{
-                            color: textColor,
-                            fontWeight: "800",
-                            fontSize: 15,
-                            textDecorationLine: isSettled ? "line-through" : "none",
-                        }}
-                    >
-                        ₹{transaction.amount.toLocaleString("en-IN")}
-                    </Text>
+            {/* Top Line: Date/Time on Left + Settled Badge on Right */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: colors.onSurfaceVariant }}>
+                    {dateDisplay}
+                </Text>
+                {isSettled && (
                     <View
                         style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 3,
+                            backgroundColor: colors.settledBg,
                             paddingHorizontal: 7,
                             paddingVertical: 2,
                             borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: colors.borderStrong || colors.border,
+                        }}
+                    >
+                        <Icon source="check-circle" size={11} color={colors.settledText} />
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: colors.settledText }}>
+                            Settled
+                        </Text>
+                    </View>
+                )}
+            </View>
+
+            {/* Bottom Line: Icon + Remark on Left, Amount + Type + Action Buttons on Right */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, marginRight: 8 }}>
+                    <View
+                        style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
                             backgroundColor: bgColor,
+                            alignItems: "center",
+                            justifyContent: "center",
                             borderWidth: 1,
                             borderColor: borderColor + "50",
                         }}
                     >
-                        <Text style={{ color: textColor, fontSize: 10, fontWeight: "700" }}>
-                            {typeLabel}
-                        </Text>
+                        <Icon
+                            source={isSettled ? "check-all" : isCredit ? "arrow-down" : "arrow-up"}
+                            size={16}
+                            color={textColor}
+                        />
                     </View>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: colors.onSurface, flex: 1 }} numberOfLines={1}>
+                        {t.remark || (isCredit ? "Credit Entry" : "Debit Entry")}
+                    </Text>
+                </View>
 
-                    {isSettled && (
-                        <View
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <View style={{ alignItems: "flex-end" }}>
+                        <Text
                             style={{
-                                paddingHorizontal: 7,
-                                paddingVertical: 2,
-                                borderRadius: 6,
-                                backgroundColor: colors.settledBg,
-                                borderWidth: 1,
-                                borderColor: colors.borderStrong || colors.border,
-                                flexDirection: "row",
-                                alignItems: "center",
-                                gap: 3,
+                                fontSize: 14,
+                                fontWeight: "800",
+                                color: textColor,
+                                textDecorationLine: isSettled ? "line-through" : "none",
                             }}
                         >
-                            <Icon source="check-circle" size={11} color={colors.settledText} />
-                            <Text style={{ color: colors.settledText, fontSize: 10, fontWeight: "700" }}>
-                                Settled
-                            </Text>
-                        </View>
-                    )}
-                </View>
-
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                        <Icon source="calendar-outline" size={11} color={colors.onSurfaceMuted} />
-                        <Text style={{ color: colors.onSurfaceMuted, fontSize: 12 }}>
-                            {formatDate(transaction.date)}
+                            ₹{t.amount.toLocaleString("en-IN")}
+                        </Text>
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: textColor }}>
+                            {isSettled ? "Settled" : isCredit ? "Got" : "Gave"}
                         </Text>
                     </View>
 
-                    {!!transaction.remark && (
-                        <>
-                            <Text style={{ color: colors.border, fontSize: 12 }}>•</Text>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1 }}>
-                                <Icon source="text" size={11} color={colors.onSurfaceMuted} />
-                                <Text
-                                    style={{ color: colors.onSurfaceVariant, fontSize: 12, flex: 1 }}
-                                    numberOfLines={1}
-                                >
-                                    {transaction.remark}
-                                </Text>
-                            </View>
-                        </>
+                    {!isSettled && onEdit && (
+                        <Pressable
+                            onPress={(e) => {
+                                e?.stopPropagation?.();
+                                onEdit(t);
+                            }}
+                            hitSlop={8}
+                            style={({ pressed }) => ({
+                                padding: 6,
+                                borderRadius: 8,
+                                backgroundColor: pressed ? colors.surfaceVariant : "transparent",
+                            })}
+                        >
+                            <Icon source="pencil-outline" size={18} color={colors.primary} />
+                        </Pressable>
+                    )}
+
+                    {!isSettled && (
+                        <Pressable
+                            onPress={(e) => {
+                                e?.stopPropagation?.();
+                                onDelete(t);
+                            }}
+                            hitSlop={8}
+                            style={({ pressed }) => ({
+                                padding: 6,
+                                borderRadius: 8,
+                                backgroundColor: pressed ? colors.dangerBg : "transparent",
+                            })}
+                        >
+                            <Icon source="trash-can-outline" size={18} color={colors.onSurfaceMuted} />
+                        </Pressable>
                     )}
                 </View>
             </View>
-
-            {/* Action buttons */}
-            <View style={{ flexDirection: "row", gap: 2, marginRight: 8, flexShrink: 0 }}>
-                {!isSettled && onEdit && (
-                    <Pressable
-                        onPress={() => onEdit(transaction)}
-                        style={({ pressed }) => ({
-                            width: 34,
-                            height: 34,
-                            borderRadius: 8,
-                            alignItems: "center",
-                            justifyContent: "center",
-                            backgroundColor: pressed ? colors.surfaceVariant : "transparent",
-                        })}
-                        hitSlop={6}
-                    >
-                        <Icon source="pencil-outline" size={17} color={colors.primary} />
-                    </Pressable>
-                )}
-                {!isSettled && (
-                    <Pressable
-                        onPress={() => onDelete(transaction)}
-                        style={({ pressed }) => ({
-                            width: 34,
-                            height: 34,
-                            borderRadius: 8,
-                            alignItems: "center",
-                            justifyContent: "center",
-                            backgroundColor: pressed ? colors.dangerBg : "transparent",
-                        })}
-                        hitSlop={6}
-                    >
-                        <Icon source="trash-can-outline" size={17} color={colors.danger} />
-                    </Pressable>
-                )}
-            </View>
-        </View>
+        </Pressable>
     );
 };
 
-// ─── Main component ─────────────────────────────────────────────────────────
+// ─── Main Component ─────────────────────────────────────────────────────────
 const TransactionTable = ({
     transactions,
     onEdit,
@@ -231,7 +225,6 @@ const TransactionTable = ({
 }) => {
     const { colors } = useAppTheme();
 
-    // Unified filter object
     const [filter, setFilter] = useState<ITransactionFilter>({
         status: "active",
         tab: "all",
@@ -240,7 +233,7 @@ const TransactionTable = ({
 
     const [visibleLimit, setVisibleLimit] = useState(25);
 
-    // Summary calculation (only considering active transactions for current balance)
+    // Summary calculation (active transactions)
     const summary = useMemo(() => {
         const activeTxList = (transactions || []).filter((t) => t.isSettled !== 1);
         const given = activeTxList.filter((t) => t.type === TransactionType.Debit).reduce((s, t) => s + t.amount, 0);
@@ -256,7 +249,7 @@ const TransactionTable = ({
         return { active, settled, total };
     }, [transactions]);
 
-    // Apply filtering and sorting using the filter object
+    // Filtering and Sorting logic
     const filteredAndSortedTransactions = useMemo(() => {
         let list = [...(transactions || [])];
 
@@ -291,13 +284,48 @@ const TransactionTable = ({
         return list;
     }, [transactions, filter]);
 
-    // Paginate 25 items at a time
-    const visibleTransactions = useMemo(() => {
-        return filteredAndSortedTransactions.slice(0, visibleLimit);
-    }, [filteredAndSortedTransactions, visibleLimit]);
+    // Group items by date headers when sorting by date
+    const groupedData = useMemo(() => {
+        const isDateSort = filter.sortBy === "date_desc" || filter.sortBy === "date_asc";
+        if (!isDateSort) {
+            return filteredAndSortedTransactions.map((item) => ({ type: "item" as const, item }));
+        }
+
+        const groups: { dateLabel: string; data: ITransaction[] }[] = [];
+        let currentLabel = "";
+        let currentGroup: ITransaction[] = [];
+
+        filteredAndSortedTransactions.forEach((t) => {
+            const label = formatDateLabel(t.date);
+            if (label !== currentLabel) {
+                if (currentGroup.length > 0) {
+                    groups.push({ dateLabel: currentLabel, data: currentGroup });
+                }
+                currentLabel = label;
+                currentGroup = [t];
+            } else {
+                currentGroup.push(t);
+            }
+        });
+
+        if (currentGroup.length > 0) {
+            groups.push({ dateLabel: currentLabel, data: currentGroup });
+        }
+
+        const items: ({ type: "header"; label: string } | { type: "item"; item: ITransaction })[] = [];
+        groups.forEach((g) => {
+            items.push({ type: "header", label: g.dateLabel });
+            g.data.forEach((item) => items.push({ type: "item", item }));
+        });
+        return items;
+    }, [filteredAndSortedTransactions, filter.sortBy]);
+
+    const visibleItems = useMemo(() => {
+        return groupedData.slice(0, visibleLimit);
+    }, [groupedData, visibleLimit]);
 
     const loadMore = () => {
-        if (visibleLimit < filteredAndSortedTransactions.length) {
+        if (visibleLimit < groupedData.length) {
             setVisibleLimit((prev) => prev + 25);
         }
     };
@@ -335,7 +363,7 @@ const TransactionTable = ({
 
     return (
         <View style={{ flex: 1 }}>
-            {/* Summary bar */}
+            {/* Summary Bar */}
             <View
                 style={{
                     backgroundColor: colors.surface,
@@ -548,7 +576,7 @@ const TransactionTable = ({
                 </ScrollView>
             </View>
 
-            {/* List with 25-item incremental loading */}
+            {/* List Content */}
             {filteredAndSortedTransactions.length === 0 ? (
                 <EmptyState
                     icon="filter-remove-outline"
@@ -567,11 +595,22 @@ const TransactionTable = ({
                 />
             ) : (
                 <FlatList
-                    data={visibleTransactions}
-                    keyExtractor={(t) => t.transactionId.toString()}
-                    renderItem={({ item: t }) => (
-                        <TransactionRow transaction={t} onEdit={onEdit} onDelete={onDelete} />
-                    )}
+                    data={visibleItems}
+                    keyExtractor={(item, index) =>
+                        item.type === "header" ? `header-${item.label}-${index}` : `tx-${item.item.transactionId}`
+                    }
+                    renderItem={({ item }) => {
+                        if (item.type === "header") {
+                            return (
+                                <View style={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 6 }}>
+                                    <Text style={{ fontSize: 12, fontWeight: "800", color: colors.onSurfaceVariant, letterSpacing: 0.5 }}>
+                                        {item.label}
+                                    </Text>
+                                </View>
+                            );
+                        }
+                        return <TransactionRow transaction={item.item} onEdit={onEdit} onDelete={onDelete} />;
+                    }}
                     contentContainerStyle={{ paddingVertical: 8, paddingBottom: 32 }}
                     showsVerticalScrollIndicator={false}
                     onEndReached={loadMore}

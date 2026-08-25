@@ -111,6 +111,7 @@ export default function BackupModal({ setVisibility, onRestoreSuccess, initialMo
             setIsLoading(true);
             await new Promise((resolve) => setTimeout(resolve, 200));
             BackupService.restoreBackup(db, importPreview.rawPayload);
+            onRestoreSuccess();
             setIsLoading(false);
             setRestoreSuccessData(importPreview);
         } catch (error: any) {

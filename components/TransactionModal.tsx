@@ -8,7 +8,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 
 interface ITransactionModalProps {
-    readonly userId: string;
+    readonly userId: string | number;
     readonly setVisibility: (isVisible: boolean) => void;
     readonly refreshTransactionList: () => void;
     readonly transaction?: ITransaction;
@@ -41,7 +41,8 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                 remark,
             });
         } else {
-            DatabaseService.createTransaction(db, parseInt(userId), parseFloat(amount), type, remark);
+            const numericUserId = typeof userId === "number" ? userId : parseInt(userId, 10);
+            DatabaseService.createTransaction(db, numericUserId, parseFloat(amount), type, remark);
         }
         setAmount("");
         setRemark("");
