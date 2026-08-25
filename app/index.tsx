@@ -1,9 +1,10 @@
+import BackupModal from "@/components/BackupModal";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import HeaderRight from "@/components/HeaderRight";
+import { HomeHeaderTitle } from "@/components/HeaderTitle";
 import Modal from "@/components/Modal";
 import UserModal from "@/components/UserModal";
 import UserTable, { UserFilterTab } from "@/components/UserTable";
-import { HomeHeaderTitle } from "@/components/HeaderTitle";
 import { ThemeContext, useAppTheme } from "@/hooks/useAppTheme";
 import DatabaseService from "@/services/database.service";
 import { IUser } from "@/types/user.interface";
@@ -27,6 +28,8 @@ export default function Index() {
     const [isDelete, setIsDelete] = useState(false);
     const [isSettleSingle, setIsSettleSingle] = useState(false);
     const [isSettleBatch, setIsSettleBatch] = useState(false);
+    const [isBackupVisible, setIsBackupVisible] = useState(false);
+    const [backupInitialMode, setBackupInitialMode] = useState<"export" | "import">("export");
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedUser, setSelectedUser] = useState<IUser>();
     const [batchUserIds, setBatchUserIds] = useState<number[]>([]);
@@ -51,9 +54,9 @@ export default function Index() {
     }, [db]);
 
     const refreshUserList = useCallback(() => {
-        if (__DEV__) {
-            DatabaseService.seedSampleData(db);
-        }
+        // if (__DEV__) {
+        //     DatabaseService.seedSampleData(db);
+        // }
         setUsers(DatabaseService.getUsers(db));
     }, [db]);
 
@@ -72,10 +75,15 @@ export default function Index() {
         }, [refreshUserList])
     );
 
+    const openBackupModal = useCallback((initialMode: "export" | "import" = "export") => {
+        setBackupInitialMode(initialMode);
+        setIsBackupVisible(true);
+    }, []);
+
     useLayoutEffect(() => {
         const headerRight = () => (
             <ThemeContext.Provider value={appTheme}>
-                <HeaderRight handler={addUserHandler} />
+                <HeaderRight handler={addUserHandler} onBackupPress={() => openBackupModal("export")} />
             </ThemeContext.Provider>
         );
         const headerTitle = () => (
@@ -90,7 +98,7 @@ export default function Index() {
             headerStyle: { backgroundColor: colors.headerBg },
             headerTintColor: colors.headerText,
         });
-    }, [appTheme]);
+    }, [appTheme, openBackupModal]);
 
     function viewUserHandler(user: IUser): void {
         router.push({ pathname: "/details", params: { userId: user.userId } });
@@ -200,12 +208,7 @@ export default function Index() {
                         <Modal isVisible={isVisible} setVisibility={closeModals}>
                             {isAdd && <UserModal onSubmit={userHandler} setVisibility={closeModals} />}
                             {isEdit && selectedUser && (
-                                <UserModal
-                                    onSubmit={userHandler}
-                                    setVisibility={closeModals}
-                                    userName={selectedUser.name}
-                                    userId={selectedUser.userId}
-                                />
+                                <UserModal onSubmit={userHandler} setVisibility={closeModals} userName={selectedUser.name} userId={selectedUser.userId} />
                             )}
                         </Modal>
                     )}
@@ -247,7 +250,8 @@ export default function Index() {
                                 <Text style={{ color: colors.onSurfaceVariant, textAlign: "center", lineHeight: 20 }}>
                                     Are you sure you want to mark all open transactions for{" "}
                                     <Text style={{ fontWeight: "800", color: colors.onSurface }}>{batchUserIds.length} selected accounts</Text> as settled?{" "}
-                                    <Text style={{ fontWeight: "800", color: colors.successText }}>Net balance for all selected accounts will reset to ₹0</Text>.
+                                    <Text style={{ fontWeight: "800", color: colors.successText }}>Net balance for all selected accounts will reset to ₹0</Text>
+                                    .
                                 </Text>
                             }
                             setIsVisible={closeModals}
@@ -255,6 +259,11 @@ export default function Index() {
                             onCancel={closeModals}
                             isVisible={isVisible}
                         />
+                    )}
+                    {isBackupVisible && (
+                        <Modal isVisible={isBackupVisible} setVisibility={() => setIsBackupVisible(false)}>
+                            <BackupModal initialMode={backupInitialMode} setVisibility={setIsBackupVisible} onRestoreSuccess={refreshUserList} />
+                        </Modal>
                     )}
                 </ThemeContext.Provider>
             </Portal>
@@ -271,82 +280,76 @@ export default function Index() {
                         backgroundColor: colors.surface,
                         borderBottomWidth: 1,
                         borderBottomColor: colors.border,
+                        width: "100%",
+                        minHeight: 44,
                     }}
                 >
                     {/* Multi Settle Button on the left side of top bar */}
-                    {eligibleCountInCurrentFilter > 0 ? (
-                        <Pressable
-                            onPress={() => setIsSelectMode((prev) => !prev)}
-                            style={({ pressed }) => ({
-                                flexDirection: "row",
-                                alignItems: "center",
-                                paddingHorizontal: 10,
-                                paddingVertical: 5,
-                                borderRadius: 14,
-                                backgroundColor: isSelectMode
-                                    ? colors.successBg
-                                    : pressed
-                                    ? colors.surfaceVariant
-                                    : colors.surface,
-                                borderWidth: 1,
-                                borderColor: isSelectMode ? colors.success : colors.border,
-                                gap: 6,
-                            })}
-                        >
-                            <Icon
-                                source="checkbox-multiple-marked-outline"
-                                size={15}
-                                color={isSelectMode ? colors.successText : colors.primary}
-                            />
-                            <Text
-                                style={{
-                                    fontSize: 12,
-                                    fontWeight: "700",
-                                    color: isSelectMode ? colors.successText : colors.primary,
-                                }}
+                    <View style={{ minHeight: 28, justifyContent: "center" }}>
+                        {eligibleCountInCurrentFilter > 0 ? (
+                            <Pressable
+                                onPress={() => setIsSelectMode((prev) => !prev)}
+                                style={({ pressed }) => ({
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 5,
+                                    borderRadius: 14,
+                                    backgroundColor: isSelectMode ? colors.successBg : pressed ? colors.surfaceVariant : colors.surface,
+                                    borderWidth: 1,
+                                    borderColor: isSelectMode ? colors.success : colors.border,
+                                    gap: 6,
+                                })}
                             >
-                                {isSelectMode ? "Cancel Selection" : "Multi Settle"}
-                            </Text>
-                        </Pressable>
-                    ) : (
-                        <View />
-                    )}
+                                <Icon source="checkbox-multiple-marked-outline" size={15} color={isSelectMode ? colors.successText : colors.primary} />
+                                <Text
+                                    style={{
+                                        fontSize: 12,
+                                        fontWeight: "700",
+                                        color: isSelectMode ? colors.successText : colors.primary,
+                                    }}
+                                >
+                                    {isSelectMode ? "Cancel Selection" : "Multi Settle"}
+                                </Text>
+                            </Pressable>
+                        ) : null}
+                    </View>
 
                     {/* Hide settled toggle on the right side of top bar */}
-                    {hasBoth && (
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <Icon source="eye-check-outline" size={15} color={colors.onSurfaceVariant} />
-                            <Text style={{ color: colors.onSurfaceVariant, fontSize: 13 }}>
-                                {hideSettled ? "Show" : "Hide"} Settled
-                            </Text>
-                            <Pressable
-                                onPress={toggleHideSettled}
-                                style={{
-                                    width: 44,
-                                    height: 24,
-                                    borderRadius: 12,
-                                    backgroundColor: hideSettled ? colors.primary : colors.toggleTrackInactive,
-                                    justifyContent: "center",
-                                    paddingHorizontal: 2,
-                                }}
-                            >
-                                <View
+                    <View style={{ minHeight: 28, justifyContent: "center" }}>
+                        {hasBoth ? (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                <Icon source="eye-check-outline" size={15} color={colors.onSurfaceVariant} />
+                                <Text style={{ color: colors.onSurfaceVariant, fontSize: 13 }}>{hideSettled ? "Show" : "Hide"} Settled</Text>
+                                <Pressable
+                                    onPress={toggleHideSettled}
                                     style={{
-                                        width: 20,
-                                        height: 20,
-                                        borderRadius: 10,
-                                        backgroundColor: "#fff",
-                                        alignSelf: hideSettled ? "flex-end" : "flex-start",
-                                        shadowColor: "#000",
-                                        shadowOffset: { width: 0, height: 1 },
-                                        shadowOpacity: 0.2,
-                                        shadowRadius: 2,
-                                        elevation: 2,
+                                        width: 44,
+                                        height: 24,
+                                        borderRadius: 12,
+                                        backgroundColor: hideSettled ? colors.primary : colors.toggleTrackInactive,
+                                        justifyContent: "center",
+                                        paddingHorizontal: 2,
                                     }}
-                                />
-                            </Pressable>
-                        </View>
-                    )}
+                                >
+                                    <View
+                                        style={{
+                                            width: 20,
+                                            height: 20,
+                                            borderRadius: 10,
+                                            backgroundColor: "#fff",
+                                            alignSelf: hideSettled ? "flex-end" : "flex-start",
+                                            shadowColor: "#000",
+                                            shadowOffset: { width: 0, height: 1 },
+                                            shadowOpacity: 0.2,
+                                            shadowRadius: 2,
+                                            elevation: 2,
+                                        }}
+                                    />
+                                </Pressable>
+                            </View>
+                        ) : null}
+                    </View>
                 </View>
             )}
 
@@ -361,6 +364,7 @@ export default function Index() {
                 setIsSelectMode={setIsSelectMode}
                 currentFilterTab={filterTab}
                 onFilterTabChange={setFilterTab}
+                onRestoreBackup={() => openBackupModal("import")}
             />
         </View>
     );

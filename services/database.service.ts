@@ -307,4 +307,98 @@ export default class DatabaseService {
             );
         });
     }
+
+    public static exportAllData(db: SQLite.SQLiteDatabase) {
+        DatabaseService.ensureIsSettledColumn(db);
+        const users = db.getAllSync("SELECT * FROM users") as IUser[];
+        const transactions = db.getAllSync("SELECT * FROM transactions") as ITransaction[];
+        const counterRow = db.getFirstSync("SELECT * FROM counters") as { userId: number; transactionId: number } | null;
+        let preferences: { key: string; value: string }[] = [];
+        try {
+            preferences = db.getAllSync("SELECT * FROM preferences") as { key: string; value: string }[];
+        } catch {
+            preferences = [];
+        }
+
+        return {
+            appName: "FinanceKeeper",
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            users,
+            transactions,
+            counters: counterRow,
+            preferences,
+        };
+    }
+
+    public static restoreBackupData(
+        db: SQLite.SQLiteDatabase,
+        data: {
+            users: IUser[];
+            transactions: ITransaction[];
+            counters?: { userId: number; transactionId: number } | null;
+            preferences?: { key: string; value: string }[];
+        }
+    ): void {
+        DatabaseService.ensureIsSettledColumn(db);
+        db.withTransactionSync(() => {
+            db.runSync("DELETE FROM transactions;");
+            db.runSync("DELETE FROM users;");
+            db.runSync("DELETE FROM counters;");
+            try {
+                db.runSync("DELETE FROM preferences;");
+            } catch {
+                // Table might not exist in old migrations, ensure standard creation
+                db.execSync("CREATE TABLE IF NOT EXISTS preferences (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);");
+            }
+
+            if (Array.isArray(data.users)) {
+                for (const user of data.users) {
+                    db.runSync(
+                        "INSERT INTO users (userId, name, balance, lastUpdated) VALUES (?, ?, ?, ?)",
+                        user.userId,
+                        user.name,
+                        user.balance ?? 0,
+                        user.lastUpdated ?? new Date().toISOString()
+                    );
+                }
+            }
+
+            if (Array.isArray(data.transactions)) {
+                for (const tx of data.transactions) {
+                    db.runSync(
+                        "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        tx.transactionId,
+                        tx.userId,
+                        tx.amount,
+                        tx.type,
+                        tx.date ?? new Date().toISOString(),
+                        tx.remark ?? "",
+                        tx.isSettled ? 1 : 0
+                    );
+                }
+            }
+
+            if (data.counters) {
+                db.runSync(
+                    "INSERT INTO counters (userId, transactionId) VALUES (?, ?)",
+                    data.counters.userId ?? 0,
+                    data.counters.transactionId ?? 0
+                );
+            } else {
+                // Recalculate counters if missing
+                const maxUser = data.users?.reduce((max, u) => Math.max(max, u.userId), 0) ?? 0;
+                const maxTx = data.transactions?.reduce((max, t) => Math.max(max, t.transactionId), 0) ?? 0;
+                db.runSync("INSERT INTO counters (userId, transactionId) VALUES (?, ?)", maxUser, maxTx);
+            }
+
+            if (Array.isArray(data.preferences)) {
+                for (const pref of data.preferences) {
+                    if (pref.key && pref.value) {
+                        db.runSync("INSERT OR REPLACE INTO preferences (key, value) VALUES (?, ?)", pref.key, pref.value);
+                    }
+                }
+            }
+        });
+    }
 }

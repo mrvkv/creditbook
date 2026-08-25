@@ -1,16 +1,27 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
 import * as React from "react";
 import { View } from "react-native";
-import { Icon, Text } from "react-native-paper";
+import { Button, Icon, Text } from "react-native-paper";
 
 interface EmptyStateProps {
     icon: string;
     title: string;
     subtitle?: string;
     size?: number;
+    actionLabel?: string;
+    actionIcon?: string;
+    onAction?: () => void;
 }
 
-export default function EmptyState({ icon, title, subtitle, size = 64 }: EmptyStateProps) {
+export default function EmptyState({
+    icon,
+    title,
+    subtitle,
+    size = 64,
+    actionLabel,
+    actionIcon,
+    onAction,
+}: EmptyStateProps) {
     const { colors } = useAppTheme();
 
     return (
@@ -62,6 +73,22 @@ export default function EmptyState({ icon, title, subtitle, size = 64 }: EmptySt
                 >
                     {subtitle}
                 </Text>
+            ) : null}
+
+            {actionLabel && onAction ? (
+                <Button
+                    mode="outlined"
+                    icon={actionIcon || "cloud-sync-outline"}
+                    onPress={onAction}
+                    textColor={colors.primary}
+                    style={{
+                        marginTop: 18,
+                        borderRadius: 10,
+                        borderColor: colors.primary,
+                    }}
+                >
+                    {actionLabel}
+                </Button>
             ) : null}
         </View>
     );

@@ -1,4 +1,4 @@
-# Credit Book 📊
+# Finance Keeper 📊
 
 A modern React Native mobile application for tracking personal finances and managing credit/debit transactions with a clean, intuitive interface.
 

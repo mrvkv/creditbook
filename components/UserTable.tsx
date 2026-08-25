@@ -105,7 +105,7 @@ const UserRow = ({
                 marginVertical: 5,
                 borderRadius: 14,
                 padding: 14,
-                borderWidth: isSelected ? 2 : 1,
+                borderWidth: 1.5,
                 borderColor: isSelected ? colors.success : colors.border,
                 shadowColor: isDark ? "#000" : "#6366F1",
                 shadowOffset: { width: 0, height: 2 },
@@ -274,6 +274,7 @@ const UserTable = ({
     setIsSelectMode,
     currentFilterTab,
     onFilterTabChange,
+    onRestoreBackup,
 }: {
     users: IUser[];
     onDelete: (user: IUser) => void;
@@ -285,6 +286,7 @@ const UserTable = ({
     setIsSelectMode?: (val: boolean) => void;
     currentFilterTab?: UserFilterTab;
     onFilterTabChange?: (tab: UserFilterTab) => void;
+    onRestoreBackup?: () => void;
 }) => {
     const { colors } = useAppTheme();
     const [searchQuery, setSearchQuery] = useState("");
@@ -405,7 +407,16 @@ const UserTable = ({
     }, [isSelectMode, eligibleCount, setIsSelectMode]);
 
     if (!users || users.length === 0) {
-        return <EmptyState icon="account-off-outline" title="No accounts found" subtitle="Tap the + button to add your first account" />;
+        return (
+            <EmptyState
+                icon="account-off-outline"
+                title="No accounts found"
+                subtitle="Tap the + button to add an account or restore from a backup file."
+                actionLabel={onRestoreBackup ? "Restore from Backup File" : undefined}
+                actionIcon="cloud-sync-outline"
+                onAction={onRestoreBackup}
+            />
+        );
     }
 
     return (
@@ -519,6 +530,8 @@ const UserTable = ({
                         flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "space-between",
+                        width: "100%",
+                        minHeight: 46,
                     }}
                 >
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
