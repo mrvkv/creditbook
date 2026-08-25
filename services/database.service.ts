@@ -231,6 +231,51 @@ export default class DatabaseService {
         }
     }
 
+    public static createBatchTransactions(
+        db: SQLite.SQLiteDatabase,
+        userIds: number[],
+        amount: number,
+        type: string,
+        remark: string
+    ): void {
+        DatabaseService.ensureIsSettledColumn(db);
+        if (!userIds || userIds.length === 0) return;
+
+        db.withTransactionSync(() => {
+            const row = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number } | null;
+            let counter = row?.transactionId ?? 0;
+            const nowIso = new Date().toISOString();
+
+            for (const uId of userIds) {
+                counter += 1;
+                db.runSync(
+                    "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled) VALUES (?, ?, ?, ?, ?, ?, 0)",
+                    counter,
+                    uId,
+                    amount,
+                    type,
+                    nowIso,
+                    remark
+                );
+
+                const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", uId) as { balance: number } | null;
+                let balance = userRow?.balance ?? 0;
+                if (type === TransactionType.Debit) {
+                    balance -= amount;
+                } else {
+                    balance += amount;
+                }
+                db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, nowIso, uId);
+            }
+
+            if (!row) {
+                db.runSync("INSERT INTO counters (userId, transactionId) VALUES (?, ?)", 0, counter);
+            } else {
+                db.runSync("UPDATE counters SET transactionId = ?", counter);
+            }
+        });
+    }
+
     public static deleteTransaction(db: SQLite.SQLiteDatabase, { transactionId, userId, type, amount }: ITransaction): void {
         DatabaseService.ensureIsSettledColumn(db);
         db.runSync("DELETE FROM transactions where transactionId = ?", transactionId);

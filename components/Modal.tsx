@@ -21,7 +21,7 @@ export default function Modal({ children, isVisible, setVisibility }: IModalProp
             onDismiss={hideModal}
             contentContainerStyle={{
                 backgroundColor: colors.modalBg,
-                marginHorizontal: 24,
+                marginHorizontal: 14,
                 borderRadius: 20,
                 paddingBottom: 8,
                 overflow: "hidden",

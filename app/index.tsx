@@ -3,6 +3,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import HeaderRight from "@/components/HeaderRight";
 import { HomeHeaderTitle } from "@/components/HeaderTitle";
 import Modal from "@/components/Modal";
+import QuickAddModal from "@/components/QuickAddModal";
 import UserModal from "@/components/UserModal";
 import UserTable, { UserFilterTab } from "@/components/UserTable";
 import { ThemeContext, useAppTheme } from "@/hooks/useAppTheme";
@@ -54,9 +55,9 @@ export default function Index() {
     }, [db]);
 
     const refreshUserList = useCallback(() => {
-        // if (__DEV__) {
-        //     DatabaseService.seedSampleData(db);
-        // }
+        if (__DEV__) {
+            DatabaseService.seedSampleData(db);
+        }
         setUsers(DatabaseService.getUsers(db));
     }, [db]);
 
@@ -206,7 +207,7 @@ export default function Index() {
                 <ThemeContext.Provider value={appTheme}>
                     {(isAdd || isEdit) && (
                         <Modal isVisible={isVisible} setVisibility={closeModals}>
-                            {isAdd && <UserModal onSubmit={userHandler} setVisibility={closeModals} />}
+                            {isAdd && <QuickAddModal users={users} setVisibility={closeModals} onSuccess={refreshUserList} onAddUserSubmit={userHandler} />}
                             {isEdit && selectedUser && (
                                 <UserModal onSubmit={userHandler} setVisibility={closeModals} userName={selectedUser.name} userId={selectedUser.userId} />
                             )}

@@ -63,14 +63,11 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                     marginBottom: 20,
                 }}
             >
-                <Text
-                    variant="titleLarge"
-                    style={{ color: colors.onSurface, fontWeight: "800", marginBottom: 4 }}
-                >
+                <Text variant="titleLarge" style={{ color: colors.onSurface, fontWeight: "800", marginBottom: 4 }}>
                     {transaction ? "Edit Transaction" : "Add Transaction"}
                 </Text>
                 <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant }}>
-                    {transaction ? "Modify credit or debit entry details." : "Record a credit or debit entry."}
+                    {transaction ? "Modify credit or debit transaction details." : "Record a credit or debit transaction."}
                 </Text>
             </View>
 
