@@ -265,6 +265,8 @@ const UserRow = ({
 // ─── Main component ─────────────────────────────────────────────────────────
 const UserTable = ({
     users,
+    hideSettled = false,
+    onToggleHideSettled,
     onDelete,
     onView,
     onEdit,
@@ -277,6 +279,8 @@ const UserTable = ({
     onRestoreBackup,
 }: {
     users: IUser[];
+    hideSettled?: boolean;
+    onToggleHideSettled?: () => void;
     onDelete: (user: IUser) => void;
     onView: (user: IUser) => void;
     onEdit: (user: IUser) => void;
@@ -315,6 +319,10 @@ const UserTable = ({
     const filteredUsers = useMemo(() => {
         let list = [...(users || [])];
 
+        if (hideSettled) {
+            list = list.filter((u) => u.balance !== 0);
+        }
+
         // Filter tab
         if (filterTab === "receivable") {
             list = list.filter((u) => u.balance < 0);
@@ -331,7 +339,7 @@ const UserTable = ({
         }
 
         return list;
-    }, [users, filterTab, searchQuery]);
+    }, [users, hideSettled, filterTab, searchQuery]);
 
     const eligibleUsers = useMemo(() => {
         return filteredUsers.filter((u) => u.balance !== 0);
@@ -392,10 +400,16 @@ const UserTable = ({
     };
 
     React.useEffect(() => {
-        if (totals.settled === 0 && filterTab === "settled") {
+        if ((hideSettled || totals.settled === 0) && filterTab === "settled") {
             setFilterTab("all");
         }
-    }, [totals.settled, filterTab]);
+        if (totals.receivable === 0 && filterTab === "receivable") {
+            setFilterTab("all");
+        }
+        if (totals.payable === 0 && filterTab === "payable") {
+            setFilterTab("all");
+        }
+    }, [hideSettled, totals.settled, totals.receivable, totals.payable, filterTab]);
 
     React.useEffect(() => {
         if (!isSelectMode || eligibleCount === 0) {
@@ -476,34 +490,38 @@ const UserTable = ({
                     <SummaryChip
                         icon="account-group-outline"
                         label="Accounts"
-                        value={String(totals.count)}
+                        value={String(hideSettled ? totals.count - totals.settled : totals.count)}
                         bgColor={colors.chipAccountBg}
                         textColor={colors.primary}
                         borderColor={colors.primary}
                         isSelected={filterTab === "all"}
                         onPress={() => handleTabChange("all")}
                     />
-                    <SummaryChip
-                        icon="arrow-down-bold-circle-outline"
-                        label="Receivable"
-                        value={`₹${totals.receivable.toLocaleString("en-IN")}`}
-                        bgColor={colors.successBg}
-                        textColor={colors.successText}
-                        borderColor={colors.success}
-                        isSelected={filterTab === "receivable"}
-                        onPress={() => handleTabChange("receivable")}
-                    />
-                    <SummaryChip
-                        icon="arrow-up-bold-circle-outline"
-                        label="Payable"
-                        value={`₹${totals.payable.toLocaleString("en-IN")}`}
-                        bgColor={colors.dangerBg}
-                        textColor={colors.dangerText}
-                        borderColor={colors.danger}
-                        isSelected={filterTab === "payable"}
-                        onPress={() => handleTabChange("payable")}
-                    />
-                    {totals.settled > 0 && (
+                    {totals.receivable > 0 && (
+                        <SummaryChip
+                            icon="arrow-down-bold-circle-outline"
+                            label="Receivable"
+                            value={`₹${totals.receivable.toLocaleString("en-IN")}`}
+                            bgColor={colors.successBg}
+                            textColor={colors.successText}
+                            borderColor={colors.success}
+                            isSelected={filterTab === "receivable"}
+                            onPress={() => handleTabChange("receivable")}
+                        />
+                    )}
+                    {totals.payable > 0 && (
+                        <SummaryChip
+                            icon="arrow-up-bold-circle-outline"
+                            label="Payable"
+                            value={`₹${totals.payable.toLocaleString("en-IN")}`}
+                            bgColor={colors.dangerBg}
+                            textColor={colors.dangerText}
+                            borderColor={colors.danger}
+                            isSelected={filterTab === "payable"}
+                            onPress={() => handleTabChange("payable")}
+                        />
+                    )}
+                    {!hideSettled && totals.settled > 0 && (
                         <SummaryChip
                             icon="check-circle-outline"
                             label="Settled"
@@ -605,11 +623,22 @@ const UserTable = ({
 
             {/* Account List */}
             {filteredUsers.length === 0 ? (
-                <EmptyState
-                    icon="account-search-outline"
-                    title="No matching accounts"
-                    subtitle={searchQuery ? `No accounts match "${searchQuery}"` : "No accounts under this filter"}
-                />
+                hideSettled && totals.count > 0 && totals.settled === totals.count ? (
+                    <EmptyState
+                        icon="check-all"
+                        title="All Accounts Settled! 🎉"
+                        subtitle="All your accounts currently have a net balance of ₹0. Settled accounts are hidden."
+                        actionLabel={onToggleHideSettled ? "Show Settled Accounts" : undefined}
+                        actionIcon="eye-outline"
+                        onAction={onToggleHideSettled}
+                    />
+                ) : (
+                    <EmptyState
+                        icon="account-search-outline"
+                        title="No matching accounts"
+                        subtitle={searchQuery ? `No accounts match "${searchQuery}"` : "No accounts under this filter"}
+                    />
+                )
             ) : (
                 <FlatList
                     data={visibleUsers}

@@ -270,7 +270,7 @@ export default function Index() {
             </Portal>
 
             {/* Top Viewport Toolbar: Multi Settle & Hide Settled Toggle */}
-            {!!users.length && (unsettledCount > 0 || hasBoth) && (
+            {!!users.length && (unsettledCount > 0 || hasSettled) && (
                 <View
                     style={{
                         flexDirection: "row",
@@ -318,7 +318,7 @@ export default function Index() {
 
                     {/* Hide settled toggle on the right side of top bar */}
                     <View style={{ minHeight: 28, justifyContent: "center" }}>
-                        {hasBoth ? (
+                        {hasSettled ? (
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                                 <Icon source="eye-check-outline" size={15} color={colors.onSurfaceVariant} />
                                 <Text style={{ color: colors.onSurfaceVariant, fontSize: 13 }}>{hideSettled ? "Show" : "Hide"} Settled</Text>
@@ -355,7 +355,9 @@ export default function Index() {
             )}
 
             <UserTable
-                users={hideSettled ? users.filter((user) => user.balance !== 0) : users}
+                users={users}
+                hideSettled={hideSettled}
+                onToggleHideSettled={toggleHideSettled}
                 onDelete={deleteUserHandler}
                 onView={viewUserHandler}
                 onEdit={editUserHandler}
