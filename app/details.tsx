@@ -1,3 +1,4 @@
+import AccountSettleModal from "@/components/AccountSettleModal";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import ExportStatementModal from "@/components/ExportStatementModal";
 import HeaderLeft from "@/components/HeaderLeft";
@@ -25,6 +26,7 @@ export default function Details() {
     const { colors } = appTheme;
 
     const [transactions, setTransactions] = useState<ITransaction[]>([]);
+    const [currentUser, setCurrentUser] = useState<IUser | null>(null);
     const [userName, setUserName] = useState<string>("");
     const [isVisible, setIsVisible] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
@@ -53,10 +55,6 @@ export default function Details() {
 
     useEffect(() => {
         refreshTransactionList();
-        // Fetch user name to display in header
-        const users: IUser[] = DatabaseService.getUsers(db);
-        const user = users.find((u) => u.userId === parseInt(userId));
-        if (user) setUserName(user.name);
     }, []);
 
     useLayoutEffect(() => {
@@ -88,7 +86,13 @@ export default function Details() {
     }, [userName, appTheme, navigateToHome]);
 
     function refreshTransactionList(): void {
-        setTransactions(DatabaseService.getTransactions(db, parseInt(userId)));
+        const uId = parseInt(userId);
+        setTransactions(DatabaseService.getTransactions(db, uId));
+        const u = DatabaseService.getUser(db, uId);
+        if (u) {
+            setCurrentUser(u);
+            setUserName(u.name);
+        }
     }
 
     function addTransactionHandler(): void {
@@ -118,8 +122,8 @@ export default function Details() {
     function settleAccountHandler(): void {
         setIsEdit(false);
         setIsDelete(false);
+        setIsVisible(false);
         setIsSettle(true);
-        setIsVisible(true);
     }
 
     function deleteTransaction(): void {
@@ -129,16 +133,11 @@ export default function Details() {
         }
     }
 
-    function settleAccount(): void {
-        DatabaseService.settleAccount(db, parseInt(userId));
-        refreshTransactionList();
-    }
-
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
             <Portal>
                 <ThemeContext.Provider value={appTheme}>
-                    {!isDelete && !isSettle && (
+                    {!isDelete && (
                         <Modal isVisible={isVisible} setVisibility={setIsVisible}>
                             <TransactionModal
                                 userId={userId}
@@ -157,25 +156,15 @@ export default function Details() {
                             isVisible={isVisible}
                         />
                     )}
-                    {isSettle && (
-                        <ConfirmationModal
-                            title="Settle Up Account"
-                            submitLabel="Settle Up"
-                            icon="check-all"
-                            variant="success"
-                            message={
-                                <Text style={{ color: colors.onSurfaceVariant, textAlign: "center", lineHeight: 20 }}>
-                                    Are you sure you want to mark{" "}
-                                    <Text style={{ fontWeight: "800", color: colors.onSurface }}>{userName}</Text>'s account as settled? All open entries will be moved to Settled History and{" "}
-                                    <Text style={{ fontWeight: "800", color: colors.successText }}>net balance will reset to ₹0</Text>.
-                                </Text>
-                            }
-                            setIsVisible={setIsVisible}
-                            onSubmit={() => settleAccount()}
-                            onCancel={() => {}}
-                            isVisible={isVisible}
-                        />
-                    )}
+                    <AccountSettleModal
+                        isVisible={isSettle}
+                        onClose={() => setIsSettle(false)}
+                        user={currentUser}
+                        onSuccess={() => {
+                            setIsSettle(false);
+                            refreshTransactionList();
+                        }}
+                    />
                     <ExportStatementModal
                         isVisible={isExportVisible}
                         onClose={() => setIsExportVisible(false)}

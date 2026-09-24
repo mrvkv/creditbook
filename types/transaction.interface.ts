@@ -7,4 +7,7 @@ export interface ITransaction {
     remark: string;
     isSettled?: number;
     userName?: string;
+    groupId?: number;
+    expenseId?: number;
+    groupName?: string;
 }

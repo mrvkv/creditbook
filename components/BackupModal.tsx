@@ -273,6 +273,15 @@ export default function BackupModal({ setVisibility, onRestoreSuccess, initialMo
                                 <Text style={{ fontSize: 13, color: colors.onSurfaceVariant }}>Transactions Restored:</Text>
                                 <Text style={{ fontSize: 13, color: colors.onSurface, fontWeight: "700" }}>{restoreSuccessData.transactionCount} entries</Text>
                             </View>
+                            {typeof restoreSuccessData.groupCount === "number" && restoreSuccessData.groupCount > 0 && (
+                                <>
+                                    <Divider />
+                                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                                        <Text style={{ fontSize: 13, color: colors.onSurfaceVariant }}>Groups Restored:</Text>
+                                        <Text style={{ fontSize: 13, color: colors.onSurface, fontWeight: "700" }}>{restoreSuccessData.groupCount} groups</Text>
+                                    </View>
+                                </>
+                            )}
                         </View>
 
                         <Button
@@ -492,6 +501,14 @@ export default function BackupModal({ setVisibility, onRestoreSuccess, initialMo
                                                 {importPreview.transactionCount} entries
                                             </Text>
                                         </View>
+                                        {typeof importPreview.groupCount === "number" && importPreview.groupCount > 0 && (
+                                            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                                                <Text style={{ color: colors.onSurfaceVariant, fontSize: 13 }}>Shared Groups:</Text>
+                                                <Text style={{ fontWeight: "700", color: colors.onSurface, fontSize: 13 }}>
+                                                    {importPreview.groupCount} groups
+                                                </Text>
+                                            </View>
+                                        )}
                                         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                                             <Text style={{ color: colors.onSurfaceVariant, fontSize: 13 }}>Export Date:</Text>
                                             <Text style={{ fontWeight: "700", color: colors.onSurface, fontSize: 13 }}>

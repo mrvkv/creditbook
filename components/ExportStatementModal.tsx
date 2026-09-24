@@ -379,7 +379,10 @@ export default function ExportStatementModal({ isVisible, onClose, userName, tra
                                         color: summary.netBalance > 0 ? colors.successText : summary.netBalance < 0 ? colors.danger : colors.onSurfaceVariant,
                                     }}
                                 >
-                                    {summary.netBalance > 0 ? "+" : ""}₹{summary.netBalance.toLocaleString("en-IN")}
+                                    {summary.netBalance > 0 ? "+" : summary.netBalance < 0 ? "-" : ""}₹{Math.abs(summary.netBalance).toLocaleString("en-IN")}{" "}
+                                    <Text style={{ fontSize: 11, fontWeight: "700" }}>
+                                        {summary.netBalance > 0 ? "(Receivable)" : summary.netBalance < 0 ? "(Payable)" : "(Settled)"}
+                                    </Text>
                                 </Text>
                             </View>
                         </View>

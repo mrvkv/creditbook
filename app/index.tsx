@@ -1,5 +1,8 @@
+import AccountSettleModal from "@/components/AccountSettleModal";
 import BackupModal from "@/components/BackupModal";
 import ConfirmationModal from "@/components/ConfirmationModal";
+import GroupModal from "@/components/GroupModal";
+import GroupTable from "@/components/GroupTable";
 import HeaderRight from "@/components/HeaderRight";
 import { HomeHeaderTitle } from "@/components/HeaderTitle";
 import Modal from "@/components/Modal";
@@ -8,10 +11,11 @@ import UserModal from "@/components/UserModal";
 import UserTable, { UserFilterTab } from "@/components/UserTable";
 import { ThemeContext, useAppTheme } from "@/hooks/useAppTheme";
 import DatabaseService from "@/services/database.service";
+import { IGroup } from "@/types/group.interface";
 import { IUser } from "@/types/user.interface";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { Icon, Portal, Text } from "react-native-paper";
 
@@ -23,6 +27,14 @@ export default function Index() {
     const { colors } = appTheme;
 
     const [users, setUsers] = useState<IUser[]>([]);
+    const [mainTab, setMainTab] = useState<"accounts" | "groups">("accounts");
+    const mainTabRef = useRef(mainTab);
+    mainTabRef.current = mainTab;
+    const [groups, setGroups] = useState<IGroup[]>([]);
+    const [isGroupModalVisible, setIsGroupModalVisible] = useState(false);
+    const [editingGroup, setEditingGroup] = useState<IGroup | undefined>();
+    const [groupToDelete, setGroupToDelete] = useState<IGroup | null>(null);
+
     const [isVisible, setIsVisible] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
     const [isAdd, setIsAdd] = useState(false);
@@ -65,6 +77,10 @@ export default function Index() {
         setUsers(DatabaseService.getUsers(db));
     }, [db]);
 
+    const refreshGroupList = useCallback(() => {
+        setGroups(DatabaseService.getGroups(db));
+    }, [db]);
+
     const closeModals = useCallback(() => {
         setIsVisible(false);
         setIsAdd(false);
@@ -77,8 +93,39 @@ export default function Index() {
     useFocusEffect(
         useCallback(() => {
             refreshUserList();
-        }, [refreshUserList])
+            refreshGroupList();
+        }, [refreshUserList, refreshGroupList])
     );
+
+    const viewGroupHandler = useCallback((grp: IGroup) => {
+        router.push({
+            pathname: "/group-details",
+            params: { groupId: String(grp.groupId) },
+        });
+    }, [router]);
+
+    const editGroupHandler = useCallback((grp: IGroup) => {
+        setEditingGroup(grp);
+        setIsGroupModalVisible(true);
+    }, []);
+
+    const deleteGroupHandler = useCallback((grp: IGroup) => {
+        setGroupToDelete(grp);
+    }, []);
+
+    const confirmDeleteGroup = useCallback(() => {
+        if (groupToDelete) {
+            DatabaseService.deleteGroup(db, groupToDelete.groupId);
+            setGroupToDelete(null);
+            refreshGroupList();
+            refreshUserList();
+        }
+    }, [db, groupToDelete, refreshGroupList, refreshUserList]);
+
+    const createGroupHandler = useCallback(() => {
+        setEditingGroup(undefined);
+        setIsGroupModalVisible(true);
+    }, []);
 
     const openBackupModal = useCallback((initialMode: "export" | "import" = "export") => {
         setBackupInitialMode(initialMode);
@@ -110,6 +157,10 @@ export default function Index() {
     }
 
     function addUserHandler(): void {
+        if (mainTabRef.current === "groups") {
+            createGroupHandler();
+            return;
+        }
         setIsAdd(true);
         setIsEdit(false);
         setIsDelete(false);
@@ -170,14 +221,6 @@ export default function Index() {
         closeModals();
     }
 
-    function confirmSingleSettle(): void {
-        if (selectedUser) {
-            DatabaseService.settleAccount(db, selectedUser.userId);
-            refreshUserList();
-        }
-        closeModals();
-    }
-
     function confirmBatchSettle(): void {
         if (batchUserIds.length > 0) {
             DatabaseService.settleMultipleAccounts(db, batchUserIds);
@@ -227,22 +270,14 @@ export default function Index() {
                         />
                     )}
                     {isSettleSingle && selectedUser && (
-                        <ConfirmationModal
-                            title="Settle Up Account"
-                            submitLabel="Settle Up"
-                            icon="check-all"
-                            variant="success"
-                            message={
-                                <Text style={{ color: colors.onSurfaceVariant, textAlign: "center", lineHeight: 20 }}>
-                                    Are you sure you want to mark all open transactions for{" "}
-                                    <Text style={{ fontWeight: "800", color: colors.onSurface }}>{selectedUser.name}</Text> as settled?{" "}
-                                    <Text style={{ fontWeight: "800", color: colors.successText }}>Net balance will reset to ₹0</Text>.
-                                </Text>
-                            }
-                            setIsVisible={closeModals}
-                            onSubmit={confirmSingleSettle}
-                            onCancel={closeModals}
-                            isVisible={isVisible}
+                        <AccountSettleModal
+                            isVisible={isSettleSingle}
+                            onClose={closeModals}
+                            user={selectedUser}
+                            onSuccess={() => {
+                                refreshUserList();
+                                closeModals();
+                            }}
                         />
                     )}
                     {isSettleBatch && (
@@ -253,10 +288,9 @@ export default function Index() {
                             variant="success"
                             message={
                                 <Text style={{ color: colors.onSurfaceVariant, textAlign: "center", lineHeight: 20 }}>
-                                    Are you sure you want to mark all open transactions for{" "}
-                                    <Text style={{ fontWeight: "800", color: colors.onSurface }}>{batchUserIds.length} selected accounts</Text> as settled?{" "}
-                                    <Text style={{ fontWeight: "800", color: colors.successText }}>Net balance for all selected accounts will reset to ₹0</Text>
-                                    .
+                                    Are you sure you want to settle all open transactions for{" "}
+                                    <Text style={{ fontWeight: "800", color: colors.onSurface }}>{batchUserIds.length} selected accounts</Text>?{" "}
+                                    <Text style={{ fontWeight: "800", color: colors.successText }}>A balancing settlement transaction will be added and net balance will reset to ₹0</Text>.
                                 </Text>
                             }
                             setIsVisible={closeModals}
@@ -270,109 +304,224 @@ export default function Index() {
                             <BackupModal initialMode={backupInitialMode} setVisibility={setIsBackupVisible} onRestoreSuccess={refreshUserList} />
                         </Modal>
                     )}
+                    {isGroupModalVisible && (
+                        <GroupModal
+                            isVisible={isGroupModalVisible}
+                            onClose={() => {
+                                setIsGroupModalVisible(false);
+                                setEditingGroup(undefined);
+                            }}
+                            group={editingGroup}
+                            onSaveSuccess={() => {
+                                refreshGroupList();
+                                refreshUserList();
+                            }}
+                        />
+                    )}
+                    {groupToDelete && (
+                        <ConfirmationModal
+                            title="Delete Group"
+                            message="Are you sure you want to delete this group? All shared expenses will be removed. Any open balances will be reverted, while already settled history is safely preserved in member ledgers."
+                            setIsVisible={(v) => {
+                                if (!v) setGroupToDelete(null);
+                            }}
+                            onSubmit={confirmDeleteGroup}
+                            onCancel={() => setGroupToDelete(null)}
+                            isVisible={!!groupToDelete}
+                        />
+                    )}
                 </ThemeContext.Provider>
             </Portal>
 
-            {/* Top Viewport Toolbar: Multi Settle & Hide Settled Toggle */}
-            {!!users.length && (unsettledCount > 0 || hasSettled) && (
-                <View
-                    style={{
+            {/* Top Main Navigation Switcher (Accounts vs Groups) */}
+            <View
+                style={{
+                    flexDirection: "row",
+                    backgroundColor: colors.surface,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    gap: 10,
+                }}
+            >
+                <Pressable
+                    onPress={() => setMainTab("accounts")}
+                    style={({ pressed }) => ({
+                        flex: 1,
                         flexDirection: "row",
                         alignItems: "center",
-                        justifyContent: "space-between",
-                        paddingHorizontal: 16,
+                        justifyContent: "center",
+                        gap: 6,
                         paddingVertical: 8,
-                        backgroundColor: colors.surface,
-                        borderBottomWidth: 1,
-                        borderBottomColor: colors.border,
-                        width: "100%",
-                        minHeight: 44,
-                    }}
+                        borderRadius: 12,
+                        backgroundColor: mainTab === "accounts" ? colors.primary + "18" : "transparent",
+                        borderWidth: 1.5,
+                        borderColor: mainTab === "accounts" ? colors.primary : "transparent",
+                        opacity: pressed ? 0.8 : 1,
+                    })}
                 >
-                    {/* Multi Settle Button on the left side of top bar */}
-                    <View style={{ minHeight: 28, justifyContent: "center" }}>
-                        {eligibleCountInCurrentFilter > 0 ? (
-                            <Pressable
-                                onPress={() => setIsSelectMode((prev) => !prev)}
-                                style={({ pressed }) => ({
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 5,
-                                    borderRadius: 14,
-                                    backgroundColor: isSelectMode ? colors.successBg : pressed ? colors.surfaceVariant : colors.surface,
-                                    borderWidth: 1,
-                                    borderColor: isSelectMode ? colors.success : colors.border,
-                                    gap: 6,
-                                })}
-                            >
-                                <Icon source="checkbox-multiple-marked-outline" size={15} color={isSelectMode ? colors.successText : colors.primary} />
-                                <Text
-                                    style={{
-                                        fontSize: 12,
-                                        fontWeight: "700",
-                                        color: isSelectMode ? colors.successText : colors.primary,
-                                    }}
-                                >
-                                    {isSelectMode ? "Cancel Selection" : "Multi Settle"}
-                                </Text>
-                            </Pressable>
-                        ) : null}
-                    </View>
+                    <Icon
+                        source="book-account-outline"
+                        size={17}
+                        color={mainTab === "accounts" ? colors.primary : colors.onSurfaceMuted}
+                    />
+                    <Text
+                        style={{
+                            fontSize: 13,
+                            fontWeight: mainTab === "accounts" ? "800" : "600",
+                            color: mainTab === "accounts" ? colors.primary : colors.onSurfaceVariant,
+                        }}
+                    >
+                        Accounts ({users.length})
+                    </Text>
+                </Pressable>
 
-                    {/* Hide settled toggle on the right side of top bar */}
-                    <View style={{ minHeight: 28, justifyContent: "center" }}>
-                        {hasSettled ? (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                                <Icon source="eye-check-outline" size={15} color={colors.onSurfaceVariant} />
-                                <Text style={{ color: colors.onSurfaceVariant, fontSize: 13 }}>{hideSettled ? "Show" : "Hide"} Settled</Text>
-                                <Pressable
-                                    onPress={toggleHideSettled}
-                                    style={{
-                                        width: 44,
-                                        height: 24,
-                                        borderRadius: 12,
-                                        backgroundColor: hideSettled ? colors.primary : colors.toggleTrackInactive,
-                                        justifyContent: "center",
-                                        paddingHorizontal: 2,
-                                    }}
-                                >
-                                    <View
-                                        style={{
-                                            width: 20,
-                                            height: 20,
-                                            borderRadius: 10,
-                                            backgroundColor: "#fff",
-                                            alignSelf: hideSettled ? "flex-end" : "flex-start",
-                                            shadowColor: "#000",
-                                            shadowOffset: { width: 0, height: 1 },
-                                            shadowOpacity: 0.2,
-                                            shadowRadius: 2,
-                                            elevation: 2,
-                                        }}
-                                    />
-                                </Pressable>
+                <Pressable
+                    onPress={() => setMainTab("groups")}
+                    style={({ pressed }) => ({
+                        flex: 1,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        paddingVertical: 8,
+                        borderRadius: 12,
+                        backgroundColor: mainTab === "groups" ? colors.primary + "18" : "transparent",
+                        borderWidth: 1.5,
+                        borderColor: mainTab === "groups" ? colors.primary : "transparent",
+                        opacity: pressed ? 0.8 : 1,
+                    })}
+                >
+                    <Icon
+                        source="account-group"
+                        size={17}
+                        color={mainTab === "groups" ? colors.primary : colors.onSurfaceMuted}
+                    />
+                    <Text
+                        style={{
+                            fontSize: 13,
+                            fontWeight: mainTab === "groups" ? "800" : "600",
+                            color: mainTab === "groups" ? colors.primary : colors.onSurfaceVariant,
+                        }}
+                    >
+                        Groups ({groups.length})
+                    </Text>
+                </Pressable>
+            </View>
+
+            {mainTab === "accounts" ? (
+                <>
+                    {/* Top Viewport Toolbar: Multi Settle & Hide Settled Toggle */}
+                    {!!users.length && (unsettledCount > 0 || hasSettled) && (
+                        <View
+                            style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                paddingHorizontal: 16,
+                                paddingVertical: 8,
+                                backgroundColor: colors.surface,
+                                borderBottomWidth: 1,
+                                borderBottomColor: colors.border,
+                                width: "100%",
+                                minHeight: 44,
+                            }}
+                        >
+                            {/* Multi Settle Button on the left side of top bar */}
+                            <View style={{ minHeight: 28, justifyContent: "center" }}>
+                                {eligibleCountInCurrentFilter > 0 ? (
+                                    <Pressable
+                                        onPress={() => setIsSelectMode((prev) => !prev)}
+                                        style={({ pressed }) => ({
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            paddingHorizontal: 10,
+                                            paddingVertical: 5,
+                                            borderRadius: 14,
+                                            backgroundColor: isSelectMode ? colors.successBg : pressed ? colors.surfaceVariant : colors.surface,
+                                            borderWidth: 1,
+                                            borderColor: isSelectMode ? colors.success : colors.border,
+                                            gap: 6,
+                                        })}
+                                    >
+                                        <Icon source="checkbox-multiple-marked-outline" size={15} color={isSelectMode ? colors.successText : colors.primary} />
+                                        <Text
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: "700",
+                                                color: isSelectMode ? colors.successText : colors.primary,
+                                            }}
+                                        >
+                                            {isSelectMode ? "Cancel Selection" : "Multi Settle"}
+                                        </Text>
+                                    </Pressable>
+                                ) : null}
                             </View>
-                        ) : null}
-                    </View>
-                </View>
-            )}
 
-            <UserTable
-                users={users}
-                hideSettled={hideSettled}
-                onToggleHideSettled={toggleHideSettled}
-                onDelete={deleteUserHandler}
-                onView={viewUserHandler}
-                onEdit={editUserHandler}
-                onSettleUser={settleUserHandler}
-                onSettleMultipleUsers={settleMultipleUsersHandler}
-                isSelectMode={isSelectMode}
-                setIsSelectMode={setIsSelectMode}
-                currentFilterTab={filterTab}
-                onFilterTabChange={setFilterTab}
-                onRestoreBackup={() => openBackupModal("import")}
-            />
+                            {/* Hide settled toggle on the right side of top bar */}
+                            <View style={{ minHeight: 28, justifyContent: "center" }}>
+                                {hasSettled ? (
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                        <Icon source="eye-check-outline" size={15} color={colors.onSurfaceVariant} />
+                                        <Text style={{ color: colors.onSurfaceVariant, fontSize: 13 }}>{hideSettled ? "Show" : "Hide"} Settled</Text>
+                                        <Pressable
+                                            onPress={toggleHideSettled}
+                                            style={{
+                                                width: 44,
+                                                height: 24,
+                                                borderRadius: 12,
+                                                backgroundColor: hideSettled ? colors.primary : colors.toggleTrackInactive,
+                                                justifyContent: "center",
+                                                paddingHorizontal: 2,
+                                            }}
+                                        >
+                                            <View
+                                                style={{
+                                                    width: 20,
+                                                    height: 20,
+                                                    borderRadius: 10,
+                                                    backgroundColor: "#fff",
+                                                    alignSelf: hideSettled ? "flex-end" : "flex-start",
+                                                    shadowColor: "#000",
+                                                    shadowOffset: { width: 0, height: 1 },
+                                                    shadowOpacity: 0.2,
+                                                    shadowRadius: 2,
+                                                    elevation: 2,
+                                                }}
+                                            />
+                                        </Pressable>
+                                    </View>
+                                ) : null}
+                            </View>
+                        </View>
+                    )}
+
+                    <UserTable
+                        users={users}
+                        hideSettled={hideSettled}
+                        onToggleHideSettled={toggleHideSettled}
+                        onDelete={deleteUserHandler}
+                        onView={viewUserHandler}
+                        onEdit={editUserHandler}
+                        onSettleUser={settleUserHandler}
+                        onSettleMultipleUsers={settleMultipleUsersHandler}
+                        isSelectMode={isSelectMode}
+                        setIsSelectMode={setIsSelectMode}
+                        currentFilterTab={filterTab}
+                        onFilterTabChange={setFilterTab}
+                        onRestoreBackup={() => openBackupModal("import")}
+                    />
+                </>
+            ) : (
+                <GroupTable
+                    groups={groups}
+                    onViewGroup={viewGroupHandler}
+                    onEditGroup={editGroupHandler}
+                    onDeleteGroup={deleteGroupHandler}
+                    onCreateGroup={createGroupHandler}
+                />
+            )}
         </View>
     );
 }

@@ -108,7 +108,7 @@ export default class PdfService {
             }
         }
 
-        const netBalance = totalCredit - totalDebit;
+        const netBalance = totalDebit - totalCredit;
         return {
             totalCount: transactions.length,
             totalCredit,
@@ -164,15 +164,16 @@ export default class PdfService {
             const isSettled = t.isSettled === 1;
 
             if (isCredit) {
-                currentRunningBalance += t.amount;
-            } else {
                 currentRunningBalance -= t.amount;
+            } else {
+                currentRunningBalance += t.amount;
             }
 
             const formattedDate = `${formatDateLabel(t.date)} ${formatTime(t.date)}`;
             const debitCell = !isCredit ? `₹${t.amount.toLocaleString("en-IN")}` : "-";
             const creditCell = isCredit ? `₹${t.amount.toLocaleString("en-IN")}` : "-";
-            const balanceCell = `${currentRunningBalance >= 0 ? "+" : "-"}₹${Math.abs(currentRunningBalance).toLocaleString("en-IN")}`;
+            const balanceSign = currentRunningBalance > 0 ? "+" : currentRunningBalance < 0 ? "-" : "";
+            const balanceCell = currentRunningBalance === 0 ? "₹0" : `${balanceSign}₹${Math.abs(currentRunningBalance).toLocaleString("en-IN")}`;
             const balanceColor = currentRunningBalance > 0 ? "#059669" : currentRunningBalance < 0 ? "#DC2626" : "#64748B";
 
             return `

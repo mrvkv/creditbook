@@ -9,6 +9,7 @@ import { Platform } from "react-native";
 export interface IBackupPreview {
     userCount: number;
     transactionCount: number;
+    groupCount?: number;
     exportedAt: string;
     appName: string;
     rawPayload: any;
@@ -151,10 +152,12 @@ export default class BackupService {
 
         const userCount = Array.isArray(decryptedPayload.users) ? decryptedPayload.users.length : 0;
         const transactionCount = Array.isArray(decryptedPayload.transactions) ? decryptedPayload.transactions.length : 0;
+        const groupCount = Array.isArray(decryptedPayload.groups) ? decryptedPayload.groups.length : 0;
 
         return {
             userCount,
             transactionCount,
+            groupCount,
             exportedAt: decryptedPayload.exportedAt || new Date().toISOString(),
             appName: decryptedPayload.appName || "FinanceKeeper",
             rawPayload: decryptedPayload,

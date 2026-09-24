@@ -172,8 +172,8 @@ export default function TransactionsTimeline() {
     // Statistics memo
     const stats = useMemo(() => {
         const totalCount = transactions.length;
-        const receivable = transactions.filter((t) => t.type === TransactionType.Credit && t.isSettled !== 1).reduce((s, t) => s + t.amount, 0);
-        const payable = transactions.filter((t) => t.type === TransactionType.Debit && t.isSettled !== 1).reduce((s, t) => s + t.amount, 0);
+        const receivable = transactions.filter((t) => t.type === TransactionType.Debit && t.isSettled !== 1).reduce((s, t) => s + t.amount, 0);
+        const payable = transactions.filter((t) => t.type === TransactionType.Credit && t.isSettled !== 1).reduce((s, t) => s + t.amount, 0);
         const settledCount = transactions.filter((t) => t.isSettled === 1).length;
         return { totalCount, receivable, payable, settledCount };
     }, [transactions]);
@@ -182,10 +182,10 @@ export default function TransactionsTimeline() {
         if (stats.settledCount === 0 && activeFilter === "settled") {
             setActiveFilter("all");
         }
-        if (stats.receivable === 0 && activeFilter === "credit") {
+        if (stats.receivable === 0 && activeFilter === "debit") {
             setActiveFilter("all");
         }
-        if (stats.payable === 0 && activeFilter === "debit") {
+        if (stats.payable === 0 && activeFilter === "credit") {
             setActiveFilter("all");
         }
     }, [stats.settledCount, stats.receivable, stats.payable, activeFilter]);
@@ -370,8 +370,8 @@ export default function TransactionsTimeline() {
                             bgColor={colors.successBg}
                             textColor={colors.successText}
                             borderColor={colors.success}
-                            isSelected={activeFilter === "credit"}
-                            onPress={() => setActiveFilter("credit")}
+                            isSelected={activeFilter === "debit"}
+                            onPress={() => setActiveFilter("debit")}
                         />
                     )}
                     {stats.payable > 0 && (
@@ -382,8 +382,8 @@ export default function TransactionsTimeline() {
                             bgColor={colors.dangerBg}
                             textColor={colors.dangerText}
                             borderColor={colors.danger}
-                            isSelected={activeFilter === "debit"}
-                            onPress={() => setActiveFilter("debit")}
+                            isSelected={activeFilter === "credit"}
+                            onPress={() => setActiveFilter("credit")}
                         />
                     )}
                     {stats.settledCount > 0 && (

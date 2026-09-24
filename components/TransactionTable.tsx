@@ -65,9 +65,29 @@ const TransactionRow = ({
         >
             {/* Top Line: Date/Time on Left + Settled Badge on Right */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text style={{ fontSize: 11, fontWeight: "700", color: colors.onSurfaceVariant }}>
-                    {dateDisplay}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 }}>
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: colors.onSurfaceVariant }}>
+                        {dateDisplay}
+                    </Text>
+                    {!!t.groupName && (
+                        <View
+                            style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 3,
+                                backgroundColor: colors.primary + "18",
+                                paddingHorizontal: 6,
+                                paddingVertical: 1,
+                                borderRadius: 5,
+                            }}
+                        >
+                            <Icon source="account-group" size={11} color={colors.primary} />
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: colors.primary }} numberOfLines={1}>
+                                {t.groupName}
+                            </Text>
+                        </View>
+                    )}
+                </View>
                 {isSettled && (
                     <View
                         style={{
@@ -201,7 +221,7 @@ const TransactionTable = ({
         const activeTxList = (transactions || []).filter((t) => t.isSettled !== 1);
         const given = activeTxList.filter((t) => t.type === TransactionType.Debit).reduce((s, t) => s + t.amount, 0);
         const taken = activeTxList.filter((t) => t.type === TransactionType.Credit).reduce((s, t) => s + t.amount, 0);
-        const net = taken - given;
+        const net = given - taken;
         return { given, taken, net, activeCount: activeTxList.length };
     }, [transactions]);
 
@@ -364,33 +384,52 @@ const TransactionTable = ({
                     <View style={{ alignItems: "center" }}>
                         <Text style={{ color: colors.onSurfaceMuted, fontSize: 11, marginBottom: 2 }}>Net Balance</Text>
                         <Text style={{ color: netColor, fontWeight: "700", fontSize: 14 }}>
-                            {summary.net === 0 ? "Settled" : (netPositive ? "+" : "") + `₹${Math.abs(summary.net).toLocaleString("en-IN")}`}
+                            {summary.net === 0 ? "Settled" : (netPositive ? "+" : "-") + `₹${Math.abs(summary.net).toLocaleString("en-IN")}`}
                         </Text>
+                        {summary.net !== 0 && (
+                            <Text style={{ color: netColor, fontSize: 10, fontWeight: "700" }}>
+                                {netPositive ? "Receivable" : "Payable"}
+                            </Text>
+                        )}
                     </View>
                 </View>
 
                 {/* Action Buttons: Settle Up and PDF Statement */}
                 <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
-                    {onSettleAccount && counts.active > 0 && (
+                    {onSettleAccount && (
                         <Pressable
-                            onPress={onSettleAccount}
+                            disabled={counts.active === 0}
+                            onPress={counts.active > 0 ? onSettleAccount : undefined}
                             style={({ pressed }) => ({
                                 flex: 1,
                                 flexDirection: "row",
                                 alignItems: "center",
                                 justifyContent: "center",
                                 gap: 6,
-                                backgroundColor: pressed ? colors.successBg : colors.surfaceVariant,
+                                backgroundColor: counts.active > 0
+                                    ? (pressed ? colors.successBg : colors.surfaceVariant)
+                                    : colors.surfaceVariant,
                                 paddingVertical: 8,
                                 paddingHorizontal: 12,
                                 borderRadius: 12,
                                 borderWidth: 1,
-                                borderColor: colors.success + "60",
+                                borderColor: counts.active > 0 ? colors.success + "60" : colors.border,
+                                opacity: counts.active > 0 ? (pressed ? 0.75 : 1) : 0.45,
                             })}
                         >
-                            <Icon source="check-all" size={16} color={colors.successText} />
-                            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.successText }}>
-                                Settle Up
+                            <Icon
+                                source="check-all"
+                                size={16}
+                                color={counts.active > 0 ? colors.successText : colors.onSurfaceMuted}
+                            />
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    fontWeight: "700",
+                                    color: counts.active > 0 ? colors.successText : colors.onSurfaceMuted,
+                                }}
+                            >
+                                {counts.active > 0 ? "Settle Up" : "Settled Up"}
                             </Text>
                         </Pressable>
                     )}
