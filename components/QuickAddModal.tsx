@@ -2,10 +2,12 @@ import { TransactionType } from "@/enums/transaction.enum";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import DatabaseService from "@/services/database.service";
 import { IUser } from "@/types/user.interface";
+import { formatDateTime } from "@/utils/date.util";
 import { useSQLiteContext } from "expo-sqlite";
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { ActivityIndicator, Button, Checkbox, Chip, Divider, Icon, IconButton, Text, TextInput } from "react-native-paper";
+import DateTimePickerModal from "./DateTimePickerModal";
 import UserModal from "./UserModal";
 
 interface QuickAddModalProps {
@@ -27,6 +29,8 @@ export default function QuickAddModal({ users, setVisibility, onSuccess, onAddUs
     const [amountStr, setAmountStr] = useState("");
     const [type, setType] = useState<TransactionType>(TransactionType.Debit);
     const [remark, setRemark] = useState("");
+    const [txDate, setTxDate] = useState<Date>(() => new Date());
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     // Loader & Confirmation state
     const [isLoading, setIsLoading] = useState(false);
@@ -82,7 +86,7 @@ export default function QuickAddModal({ users, setVisibility, onSuccess, onAddUs
         await new Promise((resolve) => setTimeout(resolve, 150));
 
         try {
-            DatabaseService.createBatchTransactions(db, selectedUserIds, numAmount, type, remark);
+            DatabaseService.createBatchTransactions(db, selectedUserIds, numAmount, type, remark, txDate.toISOString());
             setIsLoading(false);
 
             const selectedNames = allDbUsers.filter((u) => selectedUserIds.includes(u.userId)).map((u) => u.name);
@@ -598,6 +602,111 @@ export default function QuickAddModal({ users, setVisibility, onSuccess, onAddUs
                             )}
                         </View>
 
+                        {/* Date & Time Selector */}
+                        <View style={{ marginTop: 2, marginBottom: 4 }}>
+                            <Text
+                                style={{
+                                    fontSize: 11,
+                                    fontWeight: "700",
+                                    color: colors.onSurfaceVariant,
+                                    marginBottom: 6,
+                                    textTransform: "uppercase",
+                                    letterSpacing: 0.5,
+                                }}
+                            >
+                                Date & Time
+                            </Text>
+
+                            <Pressable
+                                onPress={() => setIsDatePickerOpen(true)}
+                                style={({ pressed }) => ({
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    backgroundColor: pressed ? colors.surfaceVariant : colors.surface,
+                                    paddingVertical: 10,
+                                    paddingHorizontal: 12,
+                                    borderRadius: 12,
+                                    borderWidth: 1,
+                                    borderColor: colors.border,
+                                })}
+                            >
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                                    <View
+                                        style={{
+                                            width: 32,
+                                            height: 32,
+                                            borderRadius: 8,
+                                            backgroundColor: colors.chipAccountBg,
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                        }}
+                                    >
+                                        <Icon source="calendar-clock" size={16} color={colors.primary} />
+                                    </View>
+                                    <View>
+                                        <Text style={{ fontSize: 13, fontWeight: "800", color: colors.onSurface }}>{formatDateTime(txDate)}</Text>
+                                        <Text style={{ fontSize: 10, color: colors.onSurfaceVariant, fontWeight: "500" }}>Tap to change date or time</Text>
+                                    </View>
+                                </View>
+
+                                <Icon source="pencil-outline" size={16} color={colors.primary} />
+                            </Pressable>
+
+                            {/* Quick Presets */}
+                            <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                                <Pressable
+                                    onPress={() => setTxDate(new Date())}
+                                    style={({ pressed }) => ({
+                                        paddingVertical: 4,
+                                        paddingHorizontal: 10,
+                                        borderRadius: 14,
+                                        backgroundColor: pressed ? colors.primary + "20" : colors.surfaceVariant,
+                                        borderWidth: 1,
+                                        borderColor: colors.border,
+                                    })}
+                                >
+                                    <Text style={{ fontSize: 11, fontWeight: "700", color: colors.onSurface }}>Now (Today)</Text>
+                                </Pressable>
+
+                                <Pressable
+                                    onPress={() => {
+                                        const now = new Date();
+                                        const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, now.getHours(), now.getMinutes());
+                                        setTxDate(yesterday);
+                                    }}
+                                    style={({ pressed }) => ({
+                                        paddingVertical: 4,
+                                        paddingHorizontal: 10,
+                                        borderRadius: 14,
+                                        backgroundColor: pressed ? colors.primary + "20" : colors.surfaceVariant,
+                                        borderWidth: 1,
+                                        borderColor: colors.border,
+                                    })}
+                                >
+                                    <Text style={{ fontSize: 11, fontWeight: "700", color: colors.onSurface }}>Yesterday</Text>
+                                </Pressable>
+
+                                <Pressable
+                                    onPress={() => setIsDatePickerOpen(true)}
+                                    style={({ pressed }) => ({
+                                        paddingVertical: 4,
+                                        paddingHorizontal: 10,
+                                        borderRadius: 14,
+                                        backgroundColor: pressed ? colors.primary + "20" : colors.surfaceVariant,
+                                        borderWidth: 1,
+                                        borderColor: colors.border,
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                        gap: 4,
+                                    })}
+                                >
+                                    <Icon source="dots-horizontal" size={12} color={colors.primary} />
+                                    <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>Custom</Text>
+                                </Pressable>
+                            </View>
+                        </View>
+
                         {/* Remark Input */}
                         <TextInput
                             mode="outlined"
@@ -630,6 +739,15 @@ export default function QuickAddModal({ users, setVisibility, onSuccess, onAddUs
                     </View>
                 )}
             </ScrollView>
+
+            {/* Date & Time Picker Modal */}
+            <DateTimePickerModal
+                isVisible={isDatePickerOpen}
+                onClose={() => setIsDatePickerOpen(false)}
+                value={txDate}
+                onConfirm={(newDate) => setTxDate(newDate)}
+                title="Batch Transaction Date & Time"
+            />
         </View>
     );
 }

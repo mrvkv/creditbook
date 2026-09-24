@@ -1,5 +1,6 @@
 import ConfirmationModal from "@/components/ConfirmationModal";
 import EmptyState from "@/components/EmptyState";
+import ExportStatementModal from "@/components/ExportStatementModal";
 import HeaderLeft from "@/components/HeaderLeft";
 import { GlobalTimelineHeaderTitle } from "@/components/HeaderTitle";
 import Modal from "@/components/Modal";
@@ -10,51 +11,12 @@ import DatabaseService from "@/services/database.service";
 import { ITransaction } from "@/types/transaction.interface";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
+import { formatDateLabel, formatTime } from "@/utils/date.util";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { BackHandler, FlatList, Pressable, ScrollView, View } from "react-native";
 import { Chip, Icon, Portal, Text, TextInput } from "react-native-paper";
 
 export type TimelineFilterTab = "all" | "credit" | "debit" | "settled";
-
-const dateLabelCache = new Map<string, string>();
-const timeCache = new Map<string, string>();
-
-function formatDateLabel(dateStr: string): string {
-    const key = dateStr.substring(0, 10);
-    if (dateLabelCache.has(key)) return dateLabelCache.get(key)!;
-
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const now = new Date();
-    
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    const itemDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-    let res = "";
-    if (itemDate.getTime() === today.getTime()) {
-        res = "Today";
-    } else if (itemDate.getTime() === yesterday.getTime()) {
-        res = "Yesterday";
-    } else {
-        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        res = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-    }
-
-    dateLabelCache.set(key, res);
-    return res;
-}
-
-function formatTime(dateStr: string): string {
-    if (timeCache.has(dateStr)) return timeCache.get(dateStr)!;
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return "";
-    const res = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    timeCache.set(dateStr, res);
-    return res;
-}
 
 // ─── Summary Chip matching Home Screen ──────────────────────────────────────
 const SummaryChip = ({
@@ -116,6 +78,7 @@ export default function TransactionsTimeline() {
     const [isVisible, setIsVisible] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
     const [isDelete, setIsDelete] = useState(false);
+    const [isExportVisible, setIsExportVisible] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<ITransaction>();
 
     const navigateToHome = useCallback(() => {
@@ -157,7 +120,25 @@ export default function TransactionsTimeline() {
         );
         const headerRight = () => (
             <ThemeContext.Provider value={appTheme}>
-                <View style={{ flexDirection: "row", alignItems: "center", marginRight: 4 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", marginRight: 4, gap: 6 }}>
+                    <Pressable
+                        onPress={() => setIsExportVisible(true)}
+                        hitSlop={8}
+                        style={({ pressed }) => ({
+                            width: 36,
+                            height: 36,
+                            borderRadius: 10,
+                            backgroundColor: pressed ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        })}
+                    >
+                        <Icon
+                            source="file-pdf-box"
+                            size={20}
+                            color={colors.headerText}
+                        />
+                    </Pressable>
                     <Pressable
                         onPress={toggleTheme}
                         hitSlop={8}
@@ -324,6 +305,11 @@ export default function TransactionsTimeline() {
                             isVisible={isVisible}
                         />
                     )}
+                    <ExportStatementModal
+                        isVisible={isExportVisible}
+                        onClose={() => setIsExportVisible(false)}
+                        transactions={transactions}
+                    />
                 </ThemeContext.Provider>
             </Portal>
 

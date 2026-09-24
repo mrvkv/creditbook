@@ -2,50 +2,11 @@ import EmptyState from "@/components/EmptyState";
 import { TransactionType } from "@/enums/transaction.enum";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { ITransaction } from "@/types/transaction.interface";
+import { formatDateLabel, formatTime } from "@/utils/date.util";
 import * as React from "react";
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, ScrollView, View } from "react-native";
 import { Icon, Text } from "react-native-paper";
-
-const dateLabelCache = new Map<string, string>();
-const timeCache = new Map<string, string>();
-
-function formatDateLabel(dateStr: string): string {
-    const key = dateStr.substring(0, 10);
-    if (dateLabelCache.has(key)) return dateLabelCache.get(key)!;
-
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const now = new Date();
-    
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    const itemDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-    let res = "";
-    if (itemDate.getTime() === today.getTime()) {
-        res = "Today";
-    } else if (itemDate.getTime() === yesterday.getTime()) {
-        res = "Yesterday";
-    } else {
-        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        res = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-    }
-
-    dateLabelCache.set(key, res);
-    return res;
-}
-
-function formatTime(dateStr: string): string {
-    if (timeCache.has(dateStr)) return timeCache.get(dateStr)!;
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return "";
-    const res = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    timeCache.set(dateStr, res);
-    return res;
-}
 
 export type TabType = "all" | "credit" | "debit";
 export type StatusFilter = "active" | "settled" | "all";
@@ -217,11 +178,13 @@ const TransactionTable = ({
     onEdit,
     onDelete,
     onSettleAccount,
+    onExportStatement,
 }: {
     transactions: ITransaction[];
     onEdit?: (transaction: ITransaction) => void;
     onDelete: (transaction: ITransaction) => void;
     onSettleAccount?: () => void;
+    onExportStatement?: () => void;
 }) => {
     const { colors } = useAppTheme();
 
@@ -270,13 +233,17 @@ const TransactionTable = ({
         // 3. Sort order
         list.sort((a, b) => {
             if (filter.sortBy === "date_desc") {
-                return new Date(b.date).getTime() - new Date(a.date).getTime();
+                const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
+                return diff !== 0 ? diff : b.transactionId - a.transactionId;
             } else if (filter.sortBy === "date_asc") {
-                return new Date(a.date).getTime() - new Date(b.date).getTime();
+                const diff = new Date(a.date).getTime() - new Date(b.date).getTime();
+                return diff !== 0 ? diff : a.transactionId - b.transactionId;
             } else if (filter.sortBy === "amount_desc") {
-                return b.amount - a.amount;
+                const diff = b.amount - a.amount;
+                return diff !== 0 ? diff : new Date(b.date).getTime() - new Date(a.date).getTime();
             } else if (filter.sortBy === "amount_asc") {
-                return a.amount - b.amount;
+                const diff = a.amount - b.amount;
+                return diff !== 0 ? diff : new Date(b.date).getTime() - new Date(a.date).getTime();
             }
             return 0;
         });
@@ -402,30 +369,56 @@ const TransactionTable = ({
                     </View>
                 </View>
 
-                {/* Settle Up Action Button */}
-                {onSettleAccount && counts.active > 0 && (
-                    <Pressable
-                        onPress={onSettleAccount}
-                        style={({ pressed }) => ({
-                            marginTop: 10,
-                            flexDirection: "row",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 6,
-                            backgroundColor: pressed ? colors.successBg : colors.surfaceVariant,
-                            paddingVertical: 8,
-                            paddingHorizontal: 16,
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: colors.success + "60",
-                        })}
-                    >
-                        <Icon source="check-all" size={16} color={colors.successText} />
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: colors.successText }}>
-                            Settle Up Account
-                        </Text>
-                    </Pressable>
-                )}
+                {/* Action Buttons: Settle Up and PDF Statement */}
+                <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
+                    {onSettleAccount && counts.active > 0 && (
+                        <Pressable
+                            onPress={onSettleAccount}
+                            style={({ pressed }) => ({
+                                flex: 1,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                                backgroundColor: pressed ? colors.successBg : colors.surfaceVariant,
+                                paddingVertical: 8,
+                                paddingHorizontal: 12,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: colors.success + "60",
+                            })}
+                        >
+                            <Icon source="check-all" size={16} color={colors.successText} />
+                            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.successText }}>
+                                Settle Up
+                            </Text>
+                        </Pressable>
+                    )}
+
+                    {onExportStatement && transactions.length > 0 && (
+                        <Pressable
+                            onPress={onExportStatement}
+                            style={({ pressed }) => ({
+                                flex: 1,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                                backgroundColor: pressed ? colors.primary + "20" : colors.surfaceVariant,
+                                paddingVertical: 8,
+                                paddingHorizontal: 12,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: colors.primary + "50",
+                            })}
+                        >
+                            <Icon source="file-pdf-box" size={18} color={colors.primary} />
+                            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>
+                                Statement (PDF)
+                            </Text>
+                        </Pressable>
+                    )}
+                </View>
             </View>
 
             {/* Status Tabs Bar (Active vs Settled History vs All) */}
@@ -434,63 +427,72 @@ const TransactionTable = ({
                     backgroundColor: colors.surface,
                     borderBottomWidth: 1,
                     borderBottomColor: colors.border,
-                    flexDirection: "row",
-                    paddingHorizontal: 16,
-                    paddingVertical: 6,
-                    gap: 8,
                 }}
             >
-                {(["active", "settled", "all"] as StatusFilter[]).map((statusKey) => {
-                    const active = filter.status === statusKey;
-                    const count = statusKey === "active" ? counts.active : statusKey === "settled" ? counts.settled : counts.total;
-                    const label = statusKey === "active" ? "Active" : statusKey === "settled" ? "Settled History" : "All Entries";
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingLeft: 16,
+                        paddingRight: 24,
+                        paddingVertical: 6,
+                        gap: 8,
+                    }}
+                >
+                    {(["active", "settled", "all"] as StatusFilter[]).map((statusKey) => {
+                        const active = filter.status === statusKey;
+                        const count = statusKey === "active" ? counts.active : statusKey === "settled" ? counts.settled : counts.total;
+                        const label = statusKey === "active" ? "Active" : statusKey === "settled" ? "Settled History" : "All Entries";
 
-                    return (
-                        <Pressable
-                            key={statusKey}
-                            onPress={() => handleStatusChange(statusKey)}
-                            style={{
-                                paddingHorizontal: 12,
-                                paddingVertical: 6,
-                                borderRadius: 16,
-                                backgroundColor: active ? colors.primary + "18" : "transparent",
-                                borderWidth: 1,
-                                borderColor: active ? colors.primary : colors.border,
-                                flexDirection: "row",
-                                alignItems: "center",
-                                gap: 4,
-                            }}
-                        >
-                            <Text
+                        return (
+                            <Pressable
+                                key={statusKey}
+                                onPress={() => handleStatusChange(statusKey)}
                                 style={{
-                                    fontSize: 12,
-                                    fontWeight: active ? "700" : "500",
-                                    color: active ? colors.primary : colors.onSurfaceVariant,
-                                }}
-                            >
-                                {label}
-                            </Text>
-                            <View
-                                style={{
-                                    paddingHorizontal: 5,
-                                    paddingVertical: 1,
-                                    borderRadius: 8,
-                                    backgroundColor: active ? colors.primary : colors.surfaceVariant,
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 6,
+                                    borderRadius: 16,
+                                    backgroundColor: active ? colors.primary + "18" : "transparent",
+                                    borderWidth: 1,
+                                    borderColor: active ? colors.primary : colors.border,
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 4,
                                 }}
                             >
                                 <Text
                                     style={{
-                                        fontSize: 10,
-                                        fontWeight: "700",
-                                        color: active ? colors.onPrimary : colors.onSurfaceMuted,
+                                        fontSize: 12,
+                                        fontWeight: active ? "700" : "500",
+                                        color: active ? colors.primary : colors.onSurfaceVariant,
                                     }}
                                 >
-                                    {count}
+                                    {label}
                                 </Text>
-                            </View>
-                        </Pressable>
-                    );
-                })}
+                                <View
+                                    style={{
+                                        paddingHorizontal: 5,
+                                        paddingVertical: 1,
+                                        borderRadius: 8,
+                                        backgroundColor: active ? colors.primary : colors.surfaceVariant,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            fontSize: 10,
+                                            fontWeight: "700",
+                                            color: active ? colors.onPrimary : colors.onSurfaceMuted,
+                                        }}
+                                    >
+                                        {count}
+                                    </Text>
+                                </View>
+                            </Pressable>
+                        );
+                    })}
+                </ScrollView>
             </View>
 
             {/* Sub-Filter (Taken/Given) & Sort Bar */}
@@ -508,7 +510,8 @@ const TransactionTable = ({
                         flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        paddingHorizontal: 16,
+                        paddingLeft: 16,
+                        paddingRight: 24,
                         paddingVertical: 8,
                         gap: 12,
                         minWidth: "100%",
@@ -566,6 +569,7 @@ const TransactionTable = ({
                             backgroundColor: colors.surface,
                             borderWidth: 1,
                             borderColor: colors.border,
+                            marginRight: 4,
                         }}
                     >
                         <Icon source={SORT_LABELS[filter.sortBy].icon} size={14} color={colors.primary} />

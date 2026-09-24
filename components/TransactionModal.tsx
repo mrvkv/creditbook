@@ -1,11 +1,13 @@
+import DateTimePickerModal from "@/components/DateTimePickerModal";
 import { TransactionType } from "@/enums/transaction.enum";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import DatabaseService from "@/services/database.service";
 import { ITransaction } from "@/types/transaction.interface";
+import { formatDateTime } from "@/utils/date.util";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { Button, Text, TextInput } from "react-native-paper";
+import { Button, Icon, Text, TextInput } from "react-native-paper";
 
 interface ITransactionModalProps {
     readonly userId: string | number;
@@ -20,6 +22,8 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
     const [type, setType] = useState(transaction ? transaction.type : TransactionType.Debit);
     const [amount, setAmount] = useState(transaction ? String(transaction.amount) : "");
     const [remark, setRemark] = useState(transaction?.remark ?? "");
+    const [txDate, setTxDate] = useState<Date>(() => (transaction?.date ? new Date(transaction.date) : new Date()));
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
     const amountInputRef = useRef<any>(null);
 
     const isDebit = type === TransactionType.Debit;
@@ -34,15 +38,17 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
 
     function handleSubmit() {
         if (!isFormValid) return;
+        const dateIso = txDate.toISOString();
         if (transaction) {
             DatabaseService.updateTransaction(db, transaction, {
                 amount: parseFloat(amount),
                 type: type as TransactionType,
                 remark,
+                date: dateIso,
             });
         } else {
             const numericUserId = typeof userId === "number" ? userId : parseInt(userId, 10);
-            DatabaseService.createTransaction(db, numericUserId, parseFloat(amount), type, remark);
+            DatabaseService.createTransaction(db, numericUserId, parseFloat(amount), type, remark, dateIso);
         }
         setAmount("");
         setRemark("");
@@ -172,6 +178,112 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                 outlineStyle={{ borderRadius: 12, borderColor: colors.borderStrong || colors.border }}
             />
 
+            {/* Date & Time Selector */}
+            <View style={{ marginHorizontal: 20, marginBottom: 14 }}>
+                <Text
+                    variant="labelMedium"
+                    style={{
+                        color: colors.onSurfaceVariant,
+                        marginBottom: 6,
+                        letterSpacing: 0.5,
+                        textTransform: "uppercase",
+                        fontSize: 11,
+                        fontWeight: "700",
+                    }}
+                >
+                    Date & Time
+                </Text>
+
+                <Pressable
+                    onPress={() => setIsDatePickerOpen(true)}
+                    style={({ pressed }) => ({
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        backgroundColor: pressed ? colors.surfaceVariant : colors.surface,
+                        paddingVertical: 10,
+                        paddingHorizontal: 14,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.borderStrong || colors.border,
+                    })}
+                >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                        <View
+                            style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 10,
+                                backgroundColor: colors.chipAccountBg,
+                                alignItems: "center",
+                                justifyContent: "center",
+                            }}
+                        >
+                            <Icon source="calendar-clock" size={18} color={colors.primary} />
+                        </View>
+                        <View>
+                            <Text style={{ fontSize: 13, fontWeight: "800", color: colors.onSurface }}>{formatDateTime(txDate)}</Text>
+                            <Text style={{ fontSize: 10, color: colors.onSurfaceVariant, fontWeight: "600" }}>Tap to customize date or time</Text>
+                        </View>
+                    </View>
+
+                    <Icon source="pencil-outline" size={18} color={colors.primary} />
+                </Pressable>
+
+                {/* Quick preset chips */}
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                    <Pressable
+                        onPress={() => setTxDate(new Date())}
+                        style={({ pressed }) => ({
+                            paddingVertical: 4,
+                            paddingHorizontal: 10,
+                            borderRadius: 14,
+                            backgroundColor: pressed ? colors.primary + "20" : colors.surfaceVariant,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                        })}
+                    >
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: colors.onSurface }}>Now (Today)</Text>
+                    </Pressable>
+
+                    <Pressable
+                        onPress={() => {
+                            const now = new Date();
+                            const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, now.getHours(), now.getMinutes());
+                            setTxDate(yesterday);
+                        }}
+                        style={({ pressed }) => ({
+                            paddingVertical: 4,
+                            paddingHorizontal: 10,
+                            borderRadius: 14,
+                            backgroundColor: pressed ? colors.primary + "20" : colors.surfaceVariant,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                        })}
+                    >
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: colors.onSurface }}>Yesterday</Text>
+                    </Pressable>
+
+                    <Pressable
+                        onPress={() => setIsDatePickerOpen(true)}
+                        style={({ pressed }) => ({
+                            paddingVertical: 4,
+                            paddingHorizontal: 10,
+                            borderRadius: 14,
+                            backgroundColor: pressed ? colors.primary + "20" : colors.surfaceVariant,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 4,
+                        })}
+                    >
+                        <Icon source="dots-horizontal" size={12} color={colors.primary} />
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>Custom</Text>
+                    </Pressable>
+                </View>
+            </View>
+
             {/* Remark */}
             <TextInput
                 mode="outlined"
@@ -212,6 +324,15 @@ export default function TransactionModal({ userId, setVisibility, refreshTransac
                     Save
                 </Button>
             </View>
+
+            {/* Date & Time Picker Modal */}
+            <DateTimePickerModal
+                isVisible={isDatePickerOpen}
+                onClose={() => setIsDatePickerOpen(false)}
+                value={txDate}
+                onConfirm={(newDate) => setTxDate(newDate)}
+                title={transaction ? "Edit Transaction Date & Time" : "Set Transaction Date & Time"}
+            />
         </ScrollView>
     );
 }

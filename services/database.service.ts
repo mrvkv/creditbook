@@ -200,7 +200,10 @@ export default class DatabaseService {
 
     public static getTransactions(db: SQLite.SQLiteDatabase, userId: number): ITransaction[] {
         DatabaseService.ensureIsSettledColumn(db);
-        return db.getAllSync("SELECT * FROM transactions where userId = ?", userId);
+        return db.getAllSync<ITransaction>(
+            "SELECT * FROM transactions WHERE userId = ? ORDER BY date DESC, transactionId DESC",
+            userId
+        );
     }
 
     public static getAllTransactions(db: SQLite.SQLiteDatabase): ITransaction[] {
@@ -210,17 +213,18 @@ export default class DatabaseService {
         );
     }
 
-    public static createTransaction(db: SQLite.SQLiteDatabase, userId: number, amount: number, type: string, remark: string): void {
+    public static createTransaction(db: SQLite.SQLiteDatabase, userId: number, amount: number, type: string, remark: string, date?: string): void {
         DatabaseService.ensureIsSettledColumn(db);
         const row = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number } | null;
         const counter = row?.transactionId ?? 0;
+        const txDate = date || new Date().toISOString();
         db.runSync(
             "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled) VALUES (?, ?, ?, ?, ?, ?, 0)",
             counter + 1,
             userId,
             amount,
             type,
-            new Date().toISOString(),
+            txDate,
             remark
         );
         let userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", userId) as { balance: number } | null;
@@ -243,7 +247,8 @@ export default class DatabaseService {
         userIds: number[],
         amount: number,
         type: string,
-        remark: string
+        remark: string,
+        date?: string
     ): void {
         DatabaseService.ensureIsSettledColumn(db);
         if (!userIds || userIds.length === 0) return;
@@ -251,7 +256,7 @@ export default class DatabaseService {
         db.withTransactionSync(() => {
             const row = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number } | null;
             let counter = row?.transactionId ?? 0;
-            const nowIso = new Date().toISOString();
+            const txDate = date || new Date().toISOString();
 
             for (const uId of userIds) {
                 counter += 1;
@@ -261,7 +266,7 @@ export default class DatabaseService {
                     uId,
                     amount,
                     type,
-                    nowIso,
+                    txDate,
                     remark
                 );
 
@@ -272,7 +277,7 @@ export default class DatabaseService {
                 } else {
                     balance += amount;
                 }
-                db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, nowIso, uId);
+                db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, new Date().toISOString(), uId);
             }
 
             if (!row) {
@@ -301,7 +306,7 @@ export default class DatabaseService {
     public static updateTransaction(
         db: SQLite.SQLiteDatabase,
         oldTransaction: ITransaction,
-        newTransaction: { amount: number; type: string; remark: string }
+        newTransaction: { amount: number; type: string; remark: string; date?: string }
     ): void {
         DatabaseService.ensureIsSettledColumn(db);
         let userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", oldTransaction.userId) as { balance: number } | null;
@@ -317,11 +322,13 @@ export default class DatabaseService {
             } else {
                 balance += newTransaction.amount;
             }
+            const txDate = newTransaction.date || oldTransaction.date || new Date().toISOString();
             db.runSync(
-                "UPDATE transactions SET amount = ?, type = ?, remark = ? WHERE transactionId = ?",
+                "UPDATE transactions SET amount = ?, type = ?, remark = ?, date = ? WHERE transactionId = ?",
                 newTransaction.amount,
                 newTransaction.type,
                 newTransaction.remark,
+                txDate,
                 oldTransaction.transactionId
             );
             db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", balance, new Date().toISOString(), oldTransaction.userId);

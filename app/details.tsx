@@ -1,4 +1,5 @@
 import ConfirmationModal from "@/components/ConfirmationModal";
+import ExportStatementModal from "@/components/ExportStatementModal";
 import HeaderLeft from "@/components/HeaderLeft";
 import HeaderRight from "@/components/HeaderRight";
 import { TransactionsHeaderTitle } from "@/components/HeaderTitle";
@@ -30,6 +31,7 @@ export default function Details() {
     const [isDelete, setIsDelete] = useState(false);
     const [isSettle, setIsSettle] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<ITransaction>();
+    const [isExportVisible, setIsExportVisible] = useState(false);
 
     // Safe back navigation — works whether or not there is a stack entry above
     const navigateToHome = useCallback(() => {
@@ -60,7 +62,10 @@ export default function Details() {
     useLayoutEffect(() => {
         const headerRight = () => (
             <ThemeContext.Provider value={appTheme}>
-                <HeaderRight handler={addTransactionHandler} />
+                <HeaderRight
+                    handler={addTransactionHandler}
+                    onExportStatementPress={() => setIsExportVisible(true)}
+                />
             </ThemeContext.Provider>
         );
         const headerLeft = () => (
@@ -171,6 +176,12 @@ export default function Details() {
                             isVisible={isVisible}
                         />
                     )}
+                    <ExportStatementModal
+                        isVisible={isExportVisible}
+                        onClose={() => setIsExportVisible(false)}
+                        userName={userName}
+                        transactions={transactions}
+                    />
                 </ThemeContext.Provider>
             </Portal>
             <TransactionTable
@@ -178,6 +189,7 @@ export default function Details() {
                 onEdit={editTransactionHandler}
                 onDelete={deleteTransactionHandler}
                 onSettleAccount={settleAccountHandler}
+                onExportStatement={() => setIsExportVisible(true)}
             />
         </View>
     );

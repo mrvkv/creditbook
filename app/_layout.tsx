@@ -44,7 +44,6 @@ export default function RootLayout() {
                             headerTitleStyle: {
                                 fontWeight: "700",
                                 fontSize: 18,
-                                letterSpacing: 0.3,
                             },
                             headerShadowVisible: true,
                             contentStyle: {

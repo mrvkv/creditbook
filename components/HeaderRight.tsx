@@ -6,13 +6,32 @@ interface HeaderRightProps {
     readonly handler: Function;
     readonly onBackupPress?: () => void;
     readonly onTimelinePress?: () => void;
+    readonly onExportStatementPress?: () => void;
 }
 
-export default function HeaderRight({ handler, onBackupPress, onTimelinePress }: HeaderRightProps) {
+export default function HeaderRight({ handler, onBackupPress, onTimelinePress, onExportStatementPress }: HeaderRightProps) {
     const { colors, isDark, toggleTheme } = useAppTheme();
 
     return (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginRight: 4 }}>
+            {/* Export PDF Statement Button */}
+            {onExportStatementPress ? (
+                <Pressable
+                    onPress={onExportStatementPress}
+                    hitSlop={8}
+                    style={({ pressed }) => ({
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        backgroundColor: pressed ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    })}
+                >
+                    <Icon source="file-pdf-box" size={22} color={colors.headerText} />
+                </Pressable>
+            ) : null}
+
             {/* Global Timeline / History Button */}
             {onTimelinePress ? (
                 <Pressable
