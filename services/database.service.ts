@@ -10,6 +10,7 @@ export default class DatabaseService {
     private static isSettledChecked = false;
     private static isSettledRepaired = false;
     private static isGroupTablesChecked = false;
+    private static isGroupExpensesSynced = false;
 
     public static ensureIsSettledColumn(db: SQLite.SQLiteDatabase): void {
         if (DatabaseService.isSettledChecked) return;
@@ -95,66 +96,210 @@ export default class DatabaseService {
     }
 
     public static ensureGroupTables(db: SQLite.SQLiteDatabase): void {
-        if (DatabaseService.isGroupTablesChecked) return;
         try {
-            // 1. Groups table
-            db.execSync(`
-                CREATE TABLE IF NOT EXISTS groups (
-                    groupId INTEGER PRIMARY KEY NOT NULL,
-                    name TEXT NOT NULL,
-                    category TEXT DEFAULT 'general',
-                    createdAt TEXT NOT NULL,
-                    isArchived INTEGER DEFAULT 0
-                );
-            `);
+            if (!DatabaseService.isGroupTablesChecked) {
+                // 1. Groups table
+                db.execSync(`
+                    CREATE TABLE IF NOT EXISTS groups (
+                        groupId INTEGER PRIMARY KEY NOT NULL,
+                        name TEXT NOT NULL,
+                        category TEXT DEFAULT 'general',
+                        createdAt TEXT NOT NULL,
+                        isArchived INTEGER DEFAULT 0
+                    );
+                `);
 
-            // 2. Group members table
-            db.execSync(`
-                CREATE TABLE IF NOT EXISTS group_members (
-                    groupMemberId INTEGER PRIMARY KEY NOT NULL,
-                    groupId INTEGER NOT NULL,
-                    userId INTEGER NOT NULL
-                );
-            `);
+                // 2. Group members table
+                db.execSync(`
+                    CREATE TABLE IF NOT EXISTS group_members (
+                        groupMemberId INTEGER PRIMARY KEY NOT NULL,
+                        groupId INTEGER NOT NULL,
+                        userId INTEGER NOT NULL
+                    );
+                `);
 
-            // 3. Group expenses table
-            db.execSync(`
-                CREATE TABLE IF NOT EXISTS group_expenses (
-                    expenseId INTEGER PRIMARY KEY NOT NULL,
-                    groupId INTEGER NOT NULL,
-                    description TEXT NOT NULL,
-                    totalAmount INTEGER NOT NULL,
-                    paidByUserId INTEGER NOT NULL,
-                    splitType TEXT NOT NULL,
-                    date TEXT NOT NULL,
-                    isSettlement INTEGER DEFAULT 0
-                );
-            `);
+                // 3. Group expenses table
+                db.execSync(`
+                    CREATE TABLE IF NOT EXISTS group_expenses (
+                        expenseId INTEGER PRIMARY KEY NOT NULL,
+                        groupId INTEGER NOT NULL,
+                        description TEXT NOT NULL,
+                        totalAmount INTEGER NOT NULL,
+                        paidByUserId INTEGER NOT NULL,
+                        splitType TEXT NOT NULL,
+                        date TEXT NOT NULL,
+                        isSettlement INTEGER DEFAULT 0
+                    );
+                `);
 
-            // 4. Group expense splits table
-            db.execSync(`
-                CREATE TABLE IF NOT EXISTS group_expense_splits (
-                    splitId INTEGER PRIMARY KEY NOT NULL,
-                    expenseId INTEGER NOT NULL,
-                    userId INTEGER NOT NULL,
-                    amount INTEGER NOT NULL
-                );
-            `);
+                // 4. Group expense splits table
+                db.execSync(`
+                    CREATE TABLE IF NOT EXISTS group_expense_splits (
+                        splitId INTEGER PRIMARY KEY NOT NULL,
+                        expenseId INTEGER NOT NULL,
+                        userId INTEGER NOT NULL,
+                        amount INTEGER NOT NULL
+                    );
+                `);
 
-            // 5. Ensure groupId and expenseId columns in transactions table
-            const tableInfo = db.getAllSync("PRAGMA table_info(transactions)") as { name: string }[];
-            const hasGroupId = tableInfo.some((col) => col.name === "groupId");
-            if (!hasGroupId) {
-                db.execSync("ALTER TABLE transactions ADD COLUMN groupId INTEGER DEFAULT NULL;");
+                // 5. Ensure groupId and expenseId columns in transactions table
+                const tableInfo = db.getAllSync("PRAGMA table_info(transactions)") as { name: string }[];
+                const hasGroupId = tableInfo.some((col) => col.name === "groupId");
+                if (!hasGroupId) {
+                    db.execSync("ALTER TABLE transactions ADD COLUMN groupId INTEGER DEFAULT NULL;");
+                }
+                const hasExpenseId = tableInfo.some((col) => col.name === "expenseId");
+                if (!hasExpenseId) {
+                    db.execSync("ALTER TABLE transactions ADD COLUMN expenseId INTEGER DEFAULT NULL;");
+                }
+
+                DatabaseService.isGroupTablesChecked = true;
             }
-            const hasExpenseId = tableInfo.some((col) => col.name === "expenseId");
-            if (!hasExpenseId) {
-                db.execSync("ALTER TABLE transactions ADD COLUMN expenseId INTEGER DEFAULT NULL;");
-            }
 
-            DatabaseService.isGroupTablesChecked = true;
+            if (!DatabaseService.isGroupExpensesSynced) {
+                DatabaseService.isGroupExpensesSynced = true;
+                DatabaseService.syncMissingGroupExpenseTransactions(db);
+            }
         } catch (error) {
             console.warn("Migration warning for group tables:", error);
+        }
+    }
+
+    public static syncMissingGroupExpenseTransactions(db: SQLite.SQLiteDatabase): void {
+        try {
+            const expenses = db.getAllSync<{
+                expenseId: number;
+                groupId: number;
+                description: string;
+                totalAmount: number;
+                paidByUserId: number;
+                splitType: string;
+                date: string;
+                isSettlement: number;
+            }>("SELECT * FROM group_expenses ORDER BY expenseId ASC");
+
+            if (!expenses || expenses.length === 0) return;
+
+            db.withTransactionSync(() => {
+                const maxTxRow = db.getFirstSync("SELECT COALESCE(MAX(transactionId), 0) as maxId FROM transactions") as { maxId: number };
+                const counterRow = db.getFirstSync("SELECT transactionId FROM counters") as { transactionId: number } | null;
+                let currentTxId = Math.max(maxTxRow?.maxId ?? 0, counterRow?.transactionId ?? 0);
+                let txInserted = false;
+
+                for (const exp of expenses) {
+                    const existingTxs = db.getFirstSync<{ count: number }>(
+                        "SELECT COUNT(*) as count FROM transactions WHERE expenseId = ?",
+                        exp.expenseId
+                    );
+                    if (existingTxs && existingTxs.count > 0) {
+                        continue;
+                    }
+
+                    const groupRow = db.getFirstSync("SELECT name FROM groups WHERE groupId = ?", exp.groupId) as { name: string } | null;
+                    const groupName = groupRow?.name || "Group";
+                    const splits = db.getAllSync<{ userId: number; amount: number }>(
+                        "SELECT userId, amount FROM group_expense_splits WHERE expenseId = ?",
+                        exp.expenseId
+                    );
+
+                    const payerId = Number(exp.paidByUserId);
+                    if (exp.isSettlement === 1) {
+                        const payee = splits[0];
+                        const payeeId = payee ? Number(payee.userId) : -1;
+
+                        if (payerId === 0 && payeeId > 0) {
+                            currentTxId++;
+                            txInserted = true;
+                            db.runSync(
+                                "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled, groupId, expenseId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
+                                currentTxId,
+                                payeeId,
+                                exp.totalAmount,
+                                TransactionType.Debit,
+                                exp.date,
+                                `Settlement: ${exp.description} (${groupName})`,
+                                exp.groupId,
+                                exp.expenseId
+                            );
+                            const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", payeeId) as { balance: number } | null;
+                            const newBal = (userRow?.balance ?? 0) - exp.totalAmount;
+                            db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, exp.date, payeeId);
+                        } else if (payerId > 0 && payeeId === 0) {
+                            currentTxId++;
+                            txInserted = true;
+                            db.runSync(
+                                "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled, groupId, expenseId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
+                                currentTxId,
+                                payerId,
+                                exp.totalAmount,
+                                TransactionType.Credit,
+                                exp.date,
+                                `Settlement: ${exp.description} (${groupName})`,
+                                exp.groupId,
+                                exp.expenseId
+                            );
+                            const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", payerId) as { balance: number } | null;
+                            const newBal = (userRow?.balance ?? 0) + exp.totalAmount;
+                            db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, exp.date, payerId);
+                        }
+                    } else {
+                        // Standard expense
+                        if (payerId === 0) {
+                            for (const s of splits) {
+                                const splitUserId = Number(s.userId);
+                                if (splitUserId > 0 && s.amount > 0) {
+                                    currentTxId++;
+                                    txInserted = true;
+                                    db.runSync(
+                                        "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled, groupId, expenseId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
+                                        currentTxId,
+                                        splitUserId,
+                                        s.amount,
+                                        TransactionType.Debit,
+                                        exp.date,
+                                        `${exp.description} (${groupName})`,
+                                        exp.groupId,
+                                        exp.expenseId
+                                    );
+                                    const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", splitUserId) as { balance: number } | null;
+                                    const newBal = (userRow?.balance ?? 0) - s.amount;
+                                    db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, exp.date, splitUserId);
+                                }
+                            }
+                        } else if (payerId > 0) {
+                            const yourSplit = splits.find((s) => Number(s.userId) === 0);
+                            if (yourSplit && yourSplit.amount > 0) {
+                                currentTxId++;
+                                txInserted = true;
+                                db.runSync(
+                                    "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled, groupId, expenseId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
+                                    currentTxId,
+                                    payerId,
+                                    yourSplit.amount,
+                                    TransactionType.Credit,
+                                    exp.date,
+                                    `${exp.description} (${groupName})`,
+                                    exp.groupId,
+                                    exp.expenseId
+                                );
+                                const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", payerId) as { balance: number } | null;
+                                const newBal = (userRow?.balance ?? 0) + yourSplit.amount;
+                                db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, exp.date, payerId);
+                            }
+                        }
+                    }
+                }
+
+                if (txInserted) {
+                    if (!counterRow) {
+                        db.runSync("INSERT INTO counters (userId, transactionId) VALUES (?, ?)", 0, currentTxId);
+                    } else {
+                        db.runSync("UPDATE counters SET transactionId = ?", currentTxId);
+                    }
+                }
+            });
+        } catch (err) {
+            console.warn("syncMissingGroupExpenseTransactions warning:", err);
         }
     }
 
@@ -365,8 +510,9 @@ export default class DatabaseService {
 
     public static createTransaction(db: SQLite.SQLiteDatabase, userId: number, amount: number, type: string, remark: string, date?: string): void {
         DatabaseService.ensureIsSettledColumn(db);
+        const maxRow = db.getFirstSync("SELECT COALESCE(MAX(transactionId), 0) as maxId FROM transactions") as { maxId: number };
         const row = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number } | null;
-        const counter = row?.transactionId ?? 0;
+        const counter = Math.max(maxRow?.maxId ?? 0, row?.transactionId ?? 0);
         const txDate = date || new Date().toISOString();
         db.runSync(
             "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled) VALUES (?, ?, ?, ?, ?, ?, 0)",
@@ -404,8 +550,9 @@ export default class DatabaseService {
         if (!userIds || userIds.length === 0) return;
 
         db.withTransactionSync(() => {
+            const maxRow = db.getFirstSync("SELECT COALESCE(MAX(transactionId), 0) as maxId FROM transactions") as { maxId: number };
             const row = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number } | null;
-            let counter = row?.transactionId ?? 0;
+            let counter = Math.max(maxRow?.maxId ?? 0, row?.transactionId ?? 0);
             const txDate = date || new Date().toISOString();
 
             for (const uId of userIds) {
@@ -512,8 +659,9 @@ export default class DatabaseService {
                     : `Settled Up: Paid to ${userRow.name}`;
                 const txRemark = options?.remark?.trim() ? options.remark.trim() : defaultRemark;
 
+                const maxRow = db.getFirstSync("SELECT COALESCE(MAX(transactionId), 0) as maxId FROM transactions") as { maxId: number };
                 const counterRow = db.getFirstSync("SELECT transactionId FROM counters") as { transactionId: number } | null;
-                const counter = counterRow?.transactionId ?? 0;
+                const counter = Math.max(maxRow?.maxId ?? 0, counterRow?.transactionId ?? 0);
                 const newTxId = counter + 1;
 
                 db.runSync(
@@ -1089,18 +1237,21 @@ export default class DatabaseService {
             const groupRow = db.getFirstSync("SELECT name FROM groups WHERE groupId = ?", params.groupId) as { name: string } | null;
             const groupName = groupRow?.name || "Group";
 
+            const maxTxRow = db.getFirstSync("SELECT COALESCE(MAX(transactionId), 0) as maxId FROM transactions") as { maxId: number };
             const txCounterRow = db.getFirstSync("SELECT transactionId from counters") as { transactionId: number } | null;
-            let currentTxId = txCounterRow?.transactionId ?? 0;
+            let currentTxId = Math.max(maxTxRow?.maxId ?? 0, txCounterRow?.transactionId ?? 0);
 
+            const payerId = Number(params.paidByUserId);
             if (params.isSettlement) {
                 // If this is a direct debt settlement:
                 const payee = params.splits[0];
-                if (params.paidByUserId === 0 && payee && payee.userId > 0) {
+                const payeeId = payee ? Number(payee.userId) : -1;
+                if (payerId === 0 && payeeId > 0) {
                     currentTxId++;
                     db.runSync(
                         "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled, groupId, expenseId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
                         currentTxId,
-                        payee.userId,
+                        payeeId,
                         params.totalAmount,
                         TransactionType.Debit,
                         expDate,
@@ -1108,15 +1259,15 @@ export default class DatabaseService {
                         params.groupId,
                         createdExpenseId
                     );
-                    const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", payee.userId) as { balance: number } | null;
+                    const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", payeeId) as { balance: number } | null;
                     const newBal = (userRow?.balance ?? 0) - params.totalAmount;
-                    db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, expDate, payee.userId);
-                } else if (params.paidByUserId > 0 && payee && payee.userId === 0) {
+                    db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, expDate, payeeId);
+                } else if (payerId > 0 && payeeId === 0) {
                     currentTxId++;
                     db.runSync(
                         "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled, groupId, expenseId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
                         currentTxId,
-                        params.paidByUserId,
+                        payerId,
                         params.totalAmount,
                         TransactionType.Credit,
                         expDate,
@@ -1124,21 +1275,22 @@ export default class DatabaseService {
                         params.groupId,
                         createdExpenseId
                     );
-                    const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", params.paidByUserId) as { balance: number } | null;
+                    const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", payerId) as { balance: number } | null;
                     const newBal = (userRow?.balance ?? 0) + params.totalAmount;
-                    db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, expDate, params.paidByUserId);
+                    db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, expDate, payerId);
                 }
             } else {
                 // Standard Expense:
-                if (params.paidByUserId === 0) {
+                if (payerId === 0) {
                     // You paid for the group!
                     for (const s of params.splits) {
-                        if (s.userId > 0 && s.amount > 0) {
+                        const splitUserId = Number(s.userId);
+                        if (splitUserId > 0 && s.amount > 0) {
                             currentTxId++;
                             db.runSync(
                                 "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled, groupId, expenseId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
                                 currentTxId,
-                                s.userId,
+                                splitUserId,
                                 s.amount,
                                 TransactionType.Debit,
                                 expDate,
@@ -1146,20 +1298,20 @@ export default class DatabaseService {
                                 params.groupId,
                                 createdExpenseId
                             );
-                            const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", s.userId) as { balance: number } | null;
+                            const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", splitUserId) as { balance: number } | null;
                             const newBal = (userRow?.balance ?? 0) - s.amount;
-                            db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, expDate, s.userId);
+                            db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, expDate, splitUserId);
                         }
                     }
-                } else {
+                } else if (payerId > 0) {
                     // Another member P paid!
-                    const yourSplit = params.splits.find((s) => s.userId === 0);
+                    const yourSplit = params.splits.find((s) => Number(s.userId) === 0);
                     if (yourSplit && yourSplit.amount > 0) {
                         currentTxId++;
                         db.runSync(
                             "INSERT INTO transactions (transactionId, userId, amount, type, date, remark, isSettled, groupId, expenseId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
                             currentTxId,
-                            params.paidByUserId,
+                            payerId,
                             yourSplit.amount,
                             TransactionType.Credit,
                             expDate,
@@ -1167,9 +1319,9 @@ export default class DatabaseService {
                             params.groupId,
                             createdExpenseId
                         );
-                        const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", params.paidByUserId) as { balance: number } | null;
+                        const userRow = db.getFirstSync("SELECT balance FROM users WHERE userId = ?", payerId) as { balance: number } | null;
                         const newBal = (userRow?.balance ?? 0) + yourSplit.amount;
-                        db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, expDate, params.paidByUserId);
+                        db.runSync("UPDATE users SET balance = ?, lastUpdated = ? WHERE userId = ?", newBal, expDate, payerId);
                     }
                 }
             }
